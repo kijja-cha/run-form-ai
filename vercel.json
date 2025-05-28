@@ -2,18 +2,10 @@
   "version": 2,
   "name": "runform-ai",
   "public": true,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/test",
-      "dest": "/test.html"
-    },
-    {
-      "src": "/(.*\\.(js|css|html|png|jpg|jpeg|gif|svg|ico|mp4|webm|mov|avi))",
-      "dest": "/$1"
+      "source": "/test",
+      "destination": "/test.html"
     }
   ],
   "headers": [
