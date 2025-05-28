@@ -10,11 +10,10 @@
     "serve": "node server.js",
     "server": "node server.js",
     "mobile": "node server.js --port 8000",
-    "build": "mkdir -p public && cp *.html *.js *.css *.md public/ 2>/dev/null || (if not exist public mkdir public) && copy *.html public\\ && copy *.js public\\ && copy *.css public\\",
-    "build:win": "if not exist public mkdir public && copy *.html public\\ && copy *.js public\\ && copy *.css public\\",
-    "build:unix": "mkdir -p public && cp *.html *.js *.css public/",
-    "deploy": "npm run build:win && vercel --prod",
-    "deploy:preview": "npm run build:win && vercel"
+    "build": "echo 'Building for Vercel...' && echo 'Files ready in public directory'",
+    "prebuild": "node -e \"const fs=require('fs'); if(!fs.existsSync('public')) fs.mkdirSync('public');\"",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "keywords": [
     "running",
