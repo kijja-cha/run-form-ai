@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Upload Test - RunForm.AI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        video { max-width: 400px; height: auto; }
+        button { padding: 10px 20px; margin: 5px; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🏃‍♂️ RunForm.AI - Video Upload Test</h1>
+    
+    <div class="test-section">
+        <h2>Video Upload Test</h2>
+        <input type="file" id="videoUpload" accept="video/*">
+        <br><br>
+        <video id="testVideo" controls style="display: none;"></video>
+        <br>
+        <button id="analyzeBtn" disabled>Analyze Video</button>
+        <button id="resetBtn">Reset</button>
+        
+        <div id="log" class="log">
+            <strong>Debug Log:</strong><br>
+            Ready for testing...<br>
+        </div>
+    </div>
+
+    <script>
+        const videoUpload = document.getElementById('videoUpload');
+        const testVideo = document.getElementById('testVideo');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const log = document.getElementById('log');
+        
+        let currentVideoURL = null;
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function resetTest() {
+            if (currentVideoURL) {
+                URL.revokeObjectURL(currentVideoURL);
+                currentVideoURL = null;
+            }
+            testVideo.style.display = 'none';
+            testVideo.src = '';
+            analyzeBtn.disabled = true;
+            videoUpload.value = '';
+            addLog('Test reset');
+        }
+        
+        videoUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                addLog(`File selected: ${file.name} (${file.type}, ${(file.size / (1024 * 1024)).toFixed(2)}MB)`);
+                
+                // Clean up previous URL
+                if (currentVideoURL) {
+                    URL.revokeObjectURL(currentVideoURL);
+                }
+                
+                currentVideoURL = URL.createObjectURL(file);
+                testVideo.src = currentVideoURL;
+                testVideo.style.display = 'block';
+                analyzeBtn.disabled = true;
+                
+                testVideo.addEventListener('loadstart', () => {
+                    addLog('Video loading started');
+                });
+                
+                testVideo.addEventListener('loadedmetadata', () => {
+                    addLog(`Video metadata loaded: ${testVideo.videoWidth}x${testVideo.videoHeight}, duration: ${testVideo.duration}s`);
+                });
+                
+                testVideo.addEventListener('loadeddata', () => {
+                    addLog('Video data loaded');
+                    if (testVideo.readyState >= 2) {
+                        addLog('Video ready for analysis');
+                        analyzeBtn.disabled = false;
+                    }
+                });
+                
+                testVideo.addEventListener('canplay', () => {
+                    addLog('Video can play');
+                    analyzeBtn.disabled = false;
+                });
+                
+                testVideo.addEventListener('error', (e) => {
+                    addLog(`Video error: ${e.message || 'Unknown error'}`);
+                    if (testVideo.error) {
+                        addLog(`Error code: ${testVideo.error.code}`);
+                    }
+                });
+            }
+        });
+        
+        analyzeBtn.addEventListener('click', () => {
+            addLog('Analysis would start here (test mode)');
+        });
+        
+        resetBtn.addEventListener('click', resetTest);
+        
+        addLog('Test page loaded successfully');
+    </script>
+</body>
+</html> 

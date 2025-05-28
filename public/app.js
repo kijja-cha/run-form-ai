@@ -6,6 +6,7 @@ class RunFormAnalyzer {
         this.recordedChunks = [];
         this.isRecording = false;
         this.currentVideo = null;
+        this.currentVideoURL = null;
         this.analysisResults = [];
         this.frameCount = 0;
         this.tipIndex = 0;
@@ -341,6 +342,12 @@ class RunFormAnalyzer {
     handleVideoUpload(event) {
         const file = event.target.files[0];
         if (file) {
+            console.log('File selected:', {
+                name: file.name,
+                type: file.type,
+                size: `${(file.size / (1024 * 1024)).toFixed(2)}MB`
+            });
+            
             // Validate file size
             const maxSize = window.DEMO_CONFIG?.MAX_VIDEO_SIZE || 100 * 1024 * 1024; // 100MB
             if (file.size > maxSize) {
@@ -348,11 +355,19 @@ class RunFormAnalyzer {
                 return;
             }
 
-            // Validate file type
-            const supportedFormats = window.DEMO_CONFIG?.SUPPORTED_FORMATS || ['video/mp4', 'video/webm'];
-            if (!supportedFormats.includes(file.type)) {
-                this.showError('Unsupported file format. Please use MP4 or WebM files.');
+            // More permissive file type validation
+            const supportedFormats = window.DEMO_CONFIG?.SUPPORTED_FORMATS || ['video/mp4', 'video/webm', 'video/mov', 'video/avi'];
+            const isVideoFile = file.type.startsWith('video/') || 
+                               file.name.toLowerCase().match(/\.(mp4|webm|mov|avi|mkv|m4v|3gp)$/);
+            
+            if (!isVideoFile && !supportedFormats.includes(file.type)) {
+                console.warn('Unsupported file type detected:', file.type);
+                this.showError('Unsupported file format. Please use MP4, WebM, MOV, or AVI files.');
                 return;
+            }
+            
+            if (!supportedFormats.includes(file.type) && isVideoFile) {
+                console.warn('File type not in supported list but appears to be video, attempting to load:', file.type);
             }
 
             this.loadVideoFromBlob(file);
@@ -365,25 +380,123 @@ class RunFormAnalyzer {
         this.inputVideo.style.display = 'block';
         this.currentVideo = this.inputVideo;
         
-        // Add loading event listeners for debugging
-        this.inputVideo.addEventListener('loadstart', () => {
+        // Store URL for later cleanup
+        this.currentVideoURL = url;
+        
+        // Reset analyze button state
+        this.analyzeBtn.disabled = true;
+        
+        // Clear any existing event listeners to prevent duplicates
+        this.inputVideo.removeEventListener('loadstart', this.videoLoadStartHandler);
+        this.inputVideo.removeEventListener('loadedmetadata', this.videoMetadataHandler);
+        this.inputVideo.removeEventListener('loadeddata', this.videoDataHandler);
+        this.inputVideo.removeEventListener('error', this.videoErrorHandler);
+        this.inputVideo.removeEventListener('canplay', this.videoCanPlayHandler);
+        
+        // Create bound event handlers for proper cleanup
+        this.videoLoadStartHandler = () => {
             console.log('Video loading started');
-        });
+        };
         
-        this.inputVideo.addEventListener('loadedmetadata', () => {
+        this.videoMetadataHandler = () => {
             console.log(`Video metadata loaded: ${this.inputVideo.videoWidth}x${this.inputVideo.videoHeight}, duration: ${this.inputVideo.duration}s`);
-        });
+            
+            // Validate video dimensions and duration
+            if (!this.inputVideo.videoWidth || !this.inputVideo.videoHeight) {
+                console.error('Invalid video dimensions');
+                this.showError('Invalid video file. Please try a different video.');
+                return;
+            }
+            
+            if (!this.inputVideo.duration || this.inputVideo.duration < 1) {
+                console.error('Invalid video duration');
+                this.showError('Video too short or invalid. Please use a video at least 1 second long.');
+                return;
+            }
+        };
         
-        this.inputVideo.addEventListener('loadeddata', () => {
-            console.log('Video data loaded, ready for analysis');
-            this.analyzeBtn.disabled = false;
-            URL.revokeObjectURL(url);
-        });
+        this.videoDataHandler = () => {
+            console.log('Video data loaded, checking readiness...');
+            
+            // Additional readiness checks
+            if (this.inputVideo.readyState >= 2) { // HAVE_CURRENT_DATA
+                console.log('Video ready for analysis');
+                this.analyzeBtn.disabled = false;
+                
+                // Don't revoke URL immediately - keep it for analysis
+                // URL will be cleaned up in reset() or when new video is loaded
+            } else {
+                console.warn('Video data loaded but not ready for playback');
+                // Try again after a short delay
+                setTimeout(() => {
+                    if (this.inputVideo.readyState >= 2) {
+                        console.log('Video ready for analysis (delayed check)');
+                        this.analyzeBtn.disabled = false;
+                    }
+                }, 500);
+            }
+        };
         
-        this.inputVideo.addEventListener('error', (e) => {
+        this.videoCanPlayHandler = () => {
+            console.log('Video can play - additional readiness confirmation');
+            if (this.analyzeBtn.disabled) {
+                this.analyzeBtn.disabled = false;
+                console.log('Analyze button enabled via canplay event');
+            }
+        };
+        
+        this.videoErrorHandler = (e) => {
             console.error('Video loading error:', e);
-            this.showError('Failed to load video. Please try a different file format.');
-        });
+            console.error('Video error details:', {
+                error: this.inputVideo.error,
+                networkState: this.inputVideo.networkState,
+                readyState: this.inputVideo.readyState
+            });
+            
+            // Clean up URL on error
+            if (this.currentVideoURL) {
+                URL.revokeObjectURL(this.currentVideoURL);
+                this.currentVideoURL = null;
+            }
+            
+            // Provide more specific error messages
+            let errorMessage = 'Failed to load video. ';
+            if (this.inputVideo.error) {
+                switch (this.inputVideo.error.code) {
+                    case 1: // MEDIA_ERR_ABORTED
+                        errorMessage += 'Video loading was aborted.';
+                        break;
+                    case 2: // MEDIA_ERR_NETWORK
+                        errorMessage += 'Network error occurred.';
+                        break;
+                    case 3: // MEDIA_ERR_DECODE
+                        errorMessage += 'Video format not supported or corrupted.';
+                        break;
+                    case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+                        errorMessage += 'Video format not supported by your browser.';
+                        break;
+                    default:
+                        errorMessage += 'Unknown error occurred.';
+                }
+            } else {
+                errorMessage += 'Please try a different file format (MP4 recommended).';
+            }
+            
+            this.showError(errorMessage);
+        };
+        
+        // Add event listeners
+        this.inputVideo.addEventListener('loadstart', this.videoLoadStartHandler);
+        this.inputVideo.addEventListener('loadedmetadata', this.videoMetadataHandler);
+        this.inputVideo.addEventListener('loadeddata', this.videoDataHandler);
+        this.inputVideo.addEventListener('canplay', this.videoCanPlayHandler);
+        this.inputVideo.addEventListener('error', this.videoErrorHandler);
+        
+        // Force load if video is already ready (cached)
+        if (this.inputVideo.readyState >= 2) {
+            console.log('Video already ready, enabling analyze button');
+            this.analyzeBtn.disabled = false;
+        }
         
         // Hide camera section
         this.cameraSection.style.display = 'none';
@@ -986,9 +1099,13 @@ class RunFormAnalyzer {
         // Adjusted thresholds for Safari iOS
         let dataQuality, qualityColor;
         if (isSafariMobile) {
-            // Lower thresholds for Safari iOS
-            dataQuality = runningFrames.length >= 8 ? 'Medium' : runningFrames.length >= 4 ? 'Low' : 'Very Low';
-            qualityColor = dataQuality === 'Medium' ? '#ffc107' : dataQuality === 'Low' ? '#fd7e14' : '#dc3545';
+            // More realistic thresholds for Safari iOS
+            dataQuality = runningFrames.length >= 6 ? 'Good' : runningFrames.length >= 3 ? 'Medium' : 'Low';
+            qualityColor = dataQuality === 'Good' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
+        } else if (isIOS) {
+            // Adjusted thresholds for other iOS browsers
+            dataQuality = runningFrames.length >= 10 ? 'Good' : runningFrames.length >= 5 ? 'Medium' : 'Low';
+            qualityColor = dataQuality === 'Good' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
         } else {
             dataQuality = runningFrames.length >= 20 ? 'High' : runningFrames.length >= 10 ? 'Medium' : 'Low';
             qualityColor = dataQuality === 'High' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
@@ -1096,6 +1213,21 @@ class RunFormAnalyzer {
             this.stopVideoRecording();
         }
         
+        // Clean up video URL
+        if (this.currentVideoURL) {
+            URL.revokeObjectURL(this.currentVideoURL);
+            this.currentVideoURL = null;
+        }
+        
+        // Clean up video event listeners
+        if (this.inputVideo) {
+            this.inputVideo.removeEventListener('loadstart', this.videoLoadStartHandler);
+            this.inputVideo.removeEventListener('loadedmetadata', this.videoMetadataHandler);
+            this.inputVideo.removeEventListener('loadeddata', this.videoDataHandler);
+            this.inputVideo.removeEventListener('error', this.videoErrorHandler);
+            this.inputVideo.removeEventListener('canplay', this.videoCanPlayHandler);
+        }
+        
         // Reset UI
         this.cameraSection.style.display = 'none';
         this.inputVideo.style.display = 'none';
@@ -1104,7 +1236,9 @@ class RunFormAnalyzer {
         this.analyzeBtn.disabled = true;
         
         // Clear canvas
-        this.canvasCtx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
+        if (this.canvasCtx && this.outputCanvas) {
+            this.canvasCtx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
+        }
         
         // Reset data
         this.currentVideo = null;
