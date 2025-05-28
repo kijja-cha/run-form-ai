@@ -9,7 +9,10 @@
     "test": "node server.js --port 8080",
     "serve": "node server.js",
     "server": "node server.js",
-    "mobile": "node server.js --port 8000"
+    "mobile": "node server.js --port 8000",
+    "build": "echo 'Static site - no build needed'",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "keywords": [
     "running",
@@ -19,7 +22,9 @@
     "ai",
     "sports",
     "biomechanics",
-    "computer-vision"
+    "computer-vision",
+    "vercel",
+    "static-site"
   ],
   "author": "RunForm.AI Team",
   "license": "MIT",
@@ -33,9 +38,11 @@
   "bugs": {
     "url": "https://github.com/runform-ai/runform-ai/issues"
   },
-  "homepage": "https://runform-ai.github.io",
+  "homepage": "https://runform-ai.vercel.app",
   "dependencies": {},
-  "devDependencies": {},
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  },
   "files": [
     "index.html",
     "app.js",
@@ -43,7 +50,14 @@
     "demo-config.js",
     "test.html",
     "server.js",
+    "vercel.json",
     "README.md",
-    "TESTING.md"
-  ]
+    "TESTING.md",
+    "DEPLOY.md"
+  ],
+  "vercel": {
+    "version": 2,
+    "name": "runform-ai",
+    "public": true
+  }
 } 
