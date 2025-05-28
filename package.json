@@ -1,0 +1,49 @@
+{
+  "name": "runform-ai",
+  "version": "1.0.0",
+  "description": "AI-powered running form analysis using MediaPipe pose detection",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --port 3000",
+    "test": "node server.js --port 8080",
+    "serve": "node server.js",
+    "server": "node server.js",
+    "mobile": "node server.js --port 8000"
+  },
+  "keywords": [
+    "running",
+    "form-analysis",
+    "pose-detection",
+    "mediapipe",
+    "ai",
+    "sports",
+    "biomechanics",
+    "computer-vision"
+  ],
+  "author": "RunForm.AI Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/runform-ai/runform-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/runform-ai/runform-ai/issues"
+  },
+  "homepage": "https://runform-ai.github.io",
+  "dependencies": {},
+  "devDependencies": {},
+  "files": [
+    "index.html",
+    "app.js",
+    "styles.css",
+    "demo-config.js",
+    "test.html",
+    "server.js",
+    "README.md",
+    "TESTING.md"
+  ]
+} 
