@@ -10,10 +10,28 @@ class RunFormAnalyzer {
         this.frameCount = 0;
         this.tipIndex = 0;
         
+        // Detect iOS and show warning
+        this.detectiOS();
+        
         this.initializeElements();
         this.initializeMediaPipe();
         this.setupEventListeners();
         this.startTipRotation();
+    }
+
+    detectiOS() {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+            // Show iOS warning after a short delay
+            setTimeout(() => {
+                const iosWarning = document.getElementById('iosWarning');
+                if (iosWarning) {
+                    iosWarning.style.display = 'block';
+                }
+            }, 2000);
+            
+            console.log('iOS device detected - performance optimizations applied');
+        }
     }
 
     initializeElements() {
@@ -56,21 +74,46 @@ class RunFormAnalyzer {
                 throw new Error('MediaPipe Pose library not loaded. Please check your internet connection.');
             }
 
+            // iOS compatibility check
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            
+            if (isIOS) {
+                console.log('iOS device detected, applying compatibility settings');
+                
+                // Check WebAssembly support
+                if (!window.WebAssembly) {
+                    throw new Error('WebAssembly not supported on this iOS version. Please update your iOS or use a different device.');
+                }
+                
+                // Check available memory (rough estimate)
+                if (navigator.deviceMemory && navigator.deviceMemory < 2) {
+                    console.warn('Low memory device detected, reducing MediaPipe complexity');
+                }
+            }
+
             this.pose = new Pose({
                 locateFile: (file) => {
                     return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
                 }
             });
 
-            // Use configuration from demo-config.js if available
-            const config = window.DEMO_CONFIG?.MEDIAPIPE_CONFIG || {
+            // Use iOS-optimized configuration
+            const config = isIOS ? {
+                modelComplexity: 0, // Reduced for iOS
+                smoothLandmarks: false, // Disabled for performance
+                enableSegmentation: false,
+                smoothSegmentation: false,
+                minDetectionConfidence: 0.7, // Higher threshold for iOS
+                minTrackingConfidence: 0.7
+            } : (window.DEMO_CONFIG?.MEDIAPIPE_CONFIG || {
                 modelComplexity: 1,
                 smoothLandmarks: true,
                 enableSegmentation: false,
                 smoothSegmentation: false,
                 minDetectionConfidence: 0.5,
                 minTrackingConfidence: 0.5
-            };
+            });
 
             this.pose.setOptions(config);
             this.pose.onResults(this.onPoseResults.bind(this));
@@ -81,18 +124,23 @@ class RunFormAnalyzer {
                 mediapipeLoading.style.display = 'none';
             }
             
-            console.log('MediaPipe Pose initialized successfully');
+            console.log('MediaPipe Pose initialized successfully', isIOS ? '(iOS optimized)' : '');
         } catch (error) {
             console.error('Error initializing MediaPipe:', error);
             
             // Update loading overlay to show error
             const mediapipeLoading = document.getElementById('mediapipeLoading');
             if (mediapipeLoading) {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const errorMessage = isIOS ? 
+                    'MediaPipe may not work optimally on iOS. Try using a desktop browser for best results.' :
+                    'Please check your internet connection and refresh the page';
+                    
                 mediapipeLoading.innerHTML = `
                     <div class="loading-content">
                         <div style="color: #dc3545; font-size: 48px;">⚠️</div>
                         <p style="color: #dc3545; font-weight: bold;">Failed to Load MediaPipe</p>
-                        <p style="color: #6c757d;">Please check your internet connection and refresh the page</p>
+                        <p style="color: #6c757d;">${errorMessage}</p>
                         <button onclick="location.reload()" style="
                             background: #dc3545;
                             color: white;
@@ -106,7 +154,7 @@ class RunFormAnalyzer {
                 `;
             }
             
-            this.showError('Failed to initialize pose detection. Please refresh the page and ensure you have a stable internet connection.');
+            this.showError('Failed to initialize pose detection. ' + (error.message || 'Please try using a desktop browser for best results.'));
         }
     }
 
@@ -305,6 +353,10 @@ class RunFormAnalyzer {
                 return;
             }
 
+            // iOS detection and optimization
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
@@ -313,29 +365,35 @@ class RunFormAnalyzer {
                 return;
             }
             
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
+            // Reduce canvas size for iOS to improve performance
+            const scaleFactor = isIOS ? 0.5 : 1;
+            canvas.width = (video.videoWidth || 640) * scaleFactor;
+            canvas.height = (video.videoHeight || 480) * scaleFactor;
             
             // Set output canvas size
             this.outputCanvas.width = canvas.width;
             this.outputCanvas.height = canvas.height;
 
             video.currentTime = 0;
-            const frameInterval = window.DEMO_CONFIG?.FRAME_INTERVAL || 0.1;
-            const maxProcessingTime = window.DEMO_CONFIG?.PERFORMANCE?.MAX_PROCESSING_TIME || 60000;
+            
+            // iOS-optimized frame processing
+            const frameInterval = isIOS ? 0.2 : (window.DEMO_CONFIG?.FRAME_INTERVAL || 0.1); // Slower for iOS
+            const maxProcessingTime = isIOS ? 30000 : (window.DEMO_CONFIG?.PERFORMANCE?.MAX_PROCESSING_TIME || 60000); // Shorter timeout for iOS
+            const maxFrames = isIOS ? 50 : 200; // Limit frames for iOS
             
             let processInterval;
             let timeoutId;
+            let frameCount = 0;
 
             // Set timeout for maximum processing time
             timeoutId = setTimeout(() => {
                 clearInterval(processInterval);
-                reject(new Error('Processing timeout - video analysis took too long'));
+                reject(new Error('Processing timeout - video analysis took too long. Try a shorter video on mobile devices.'));
             }, maxProcessingTime);
 
             const processFrame = async () => {
                 try {
-                    if (video.currentTime >= video.duration) {
+                    if (video.currentTime >= video.duration || frameCount >= maxFrames) {
                         clearInterval(processInterval);
                         clearTimeout(timeoutId);
                         resolve();
@@ -343,9 +401,10 @@ class RunFormAnalyzer {
                     }
 
                     // Update progress
-                    const progress = (video.currentTime / video.duration) * 100;
+                    const progress = Math.min((video.currentTime / video.duration) * 100, (frameCount / maxFrames) * 100);
                     this.updateProgress(progress);
 
+                    // Draw with scaling for iOS
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
                     if (this.pose) {
@@ -353,14 +412,29 @@ class RunFormAnalyzer {
                     }
 
                     video.currentTime += frameInterval;
+                    frameCount++;
+                    
+                    // Add small delay for iOS to prevent overwhelming the device
+                    if (isIOS && frameCount % 5 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
                 } catch (error) {
                     console.error('Error processing frame:', error);
-                    // Continue processing despite frame errors
+                    // Continue processing despite frame errors, but limit retries on iOS
+                    if (isIOS && frameCount > 10) {
+                        clearInterval(processInterval);
+                        clearTimeout(timeoutId);
+                        reject(new Error('Too many processing errors on iOS. Please try a different video or use a desktop browser.'));
+                        return;
+                    }
                     video.currentTime += frameInterval;
+                    frameCount++;
                 }
             };
 
-            processInterval = setInterval(processFrame, 100);
+            // Slower processing interval for iOS
+            const intervalDelay = isIOS ? 200 : 100;
+            processInterval = setInterval(processFrame, intervalDelay);
         });
     }
 
