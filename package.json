@@ -10,9 +10,11 @@
     "serve": "node server.js",
     "server": "node server.js",
     "mobile": "node server.js --port 8000",
-    "build": "echo 'Static site - no build needed'",
-    "deploy": "vercel --prod",
-    "deploy:preview": "vercel"
+    "build": "mkdir -p public && cp *.html *.js *.css *.md public/ 2>/dev/null || (if not exist public mkdir public) && copy *.html public\\ && copy *.js public\\ && copy *.css public\\",
+    "build:win": "if not exist public mkdir public && copy *.html public\\ && copy *.js public\\ && copy *.css public\\",
+    "build:unix": "mkdir -p public && cp *.html *.js *.css public/",
+    "deploy": "npm run build:win && vercel --prod",
+    "deploy:preview": "npm run build:win && vercel"
   },
   "keywords": [
     "running",
@@ -50,7 +52,7 @@
     "demo-config.js",
     "test.html",
     "server.js",
-    "vercel.json",
+    "public/",
     "README.md",
     "TESTING.md",
     "DEPLOY.md"
@@ -58,6 +60,7 @@
   "vercel": {
     "version": 2,
     "name": "runform-ai",
-    "public": true
+    "public": true,
+    "outputDirectory": "public"
   }
 } 

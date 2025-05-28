@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "name": "runform-ai",
+  "buildCommand": "npm run build:win",
+  "outputDirectory": "public",
+  "installCommand": "",
+  "devCommand": "npm run dev"
+} 
