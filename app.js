@@ -308,18 +308,32 @@ class RunFormAnalyzer {
         this.inputVideo.src = url;
         this.inputVideo.style.display = 'block';
         this.currentVideo = this.inputVideo;
-        this.analyzeBtn.disabled = false;
+        
+        // Add loading event listeners for debugging
+        this.inputVideo.addEventListener('loadstart', () => {
+            console.log('Video loading started');
+        });
+        
+        this.inputVideo.addEventListener('loadedmetadata', () => {
+            console.log(`Video metadata loaded: ${this.inputVideo.videoWidth}x${this.inputVideo.videoHeight}, duration: ${this.inputVideo.duration}s`);
+        });
+        
+        this.inputVideo.addEventListener('loadeddata', () => {
+            console.log('Video data loaded, ready for analysis');
+            this.analyzeBtn.disabled = false;
+            URL.revokeObjectURL(url);
+        });
+        
+        this.inputVideo.addEventListener('error', (e) => {
+            console.error('Video loading error:', e);
+            this.showError('Failed to load video. Please try a different file format.');
+        });
         
         // Hide camera section
         this.cameraSection.style.display = 'none';
         if (this.camera) {
             this.camera.stop();
         }
-
-        // Clean up previous URL
-        this.inputVideo.addEventListener('loadeddata', () => {
-            URL.revokeObjectURL(url);
-        }, { once: true });
     }
 
     async analyzeVideo() {
@@ -332,12 +346,44 @@ class RunFormAnalyzer {
 
         try {
             await this.processVideoFrames();
-            this.generateFeedback();
+            
+            // Check if we have enough data for analysis
+            if (this.analysisResults.length === 0) {
+                this.showFeedback([{
+                    type: 'error',
+                    title: '❌ No Analysis Data',
+                    message: 'Unable to detect any pose data in the video. Please ensure the person is clearly visible.',
+                    suggestion: 'Try recording with better lighting, clearer view of the person, or a different angle.'
+                }]);
+            } else if (this.analysisResults.length < 5) {
+                this.showFeedback([{
+                    type: 'warning',
+                    title: '⚠️ Limited Analysis Data',
+                    message: `Only ${this.analysisResults.length} frames were analyzed. Results may not be accurate.`,
+                    suggestion: 'For better results, try a longer video (10-15 seconds) with clearer view of the runner.'
+                }]);
+            } else {
+                this.generateFeedback();
+            }
+            
             this.showLoading(false);
             this.showProgress(false);
         } catch (error) {
             console.error('Error during analysis:', error);
-            this.showError('Analysis failed. Please try again with a clearer video.');
+            
+            // Provide more specific error messages
+            let errorMessage = 'Analysis failed. ';
+            if (error.message.includes('timeout')) {
+                errorMessage += 'The video took too long to process. Try a shorter video or use a faster device.';
+            } else if (error.message.includes('MediaPipe') || error.message.includes('pose')) {
+                errorMessage += 'Pose detection failed. Please check your internet connection and try again.';
+            } else if (error.message.includes('video')) {
+                errorMessage += 'Video processing failed. Please try a different video format or re-record.';
+            } else {
+                errorMessage += 'Please try again with a clearer video or check your internet connection.';
+            }
+            
+            this.showError(errorMessage);
             this.showLoading(false);
             this.showProgress(false);
         }
@@ -353,127 +399,191 @@ class RunFormAnalyzer {
                 return;
             }
 
-            // iOS detection and optimization
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-                reject(new Error('Failed to create canvas context'));
-                return;
-            }
-            
-            // Reduce canvas size for iOS to improve performance
-            const scaleFactor = isIOS ? 0.5 : 1;
-            canvas.width = (video.videoWidth || 640) * scaleFactor;
-            canvas.height = (video.videoHeight || 480) * scaleFactor;
-            
-            // Set output canvas size
-            this.outputCanvas.width = canvas.width;
-            this.outputCanvas.height = canvas.height;
-
-            video.currentTime = 0;
-            
-            // iOS-optimized frame processing
-            const frameInterval = isIOS ? 0.2 : (window.DEMO_CONFIG?.FRAME_INTERVAL || 0.1); // Slower for iOS
-            const maxProcessingTime = isIOS ? 30000 : (window.DEMO_CONFIG?.PERFORMANCE?.MAX_PROCESSING_TIME || 60000); // Shorter timeout for iOS
-            const maxFrames = isIOS ? 50 : 200; // Limit frames for iOS
-            
-            let processInterval;
-            let timeoutId;
-            let frameCount = 0;
-
-            // Set timeout for maximum processing time
-            timeoutId = setTimeout(() => {
-                clearInterval(processInterval);
-                reject(new Error('Processing timeout - video analysis took too long. Try a shorter video on mobile devices.'));
-            }, maxProcessingTime);
-
-            const processFrame = async () => {
-                try {
-                    if (video.currentTime >= video.duration || frameCount >= maxFrames) {
-                        clearInterval(processInterval);
-                        clearTimeout(timeoutId);
-                        resolve();
-                        return;
+            // Wait for video to be ready
+            const waitForVideoReady = () => {
+                return new Promise((resolveReady) => {
+                    if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+                        resolveReady();
+                    } else {
+                        video.addEventListener('loadeddata', resolveReady, { once: true });
+                        // Fallback timeout
+                        setTimeout(resolveReady, 2000);
                     }
-
-                    // Update progress
-                    const progress = Math.min((video.currentTime / video.duration) * 100, (frameCount / maxFrames) * 100);
-                    this.updateProgress(progress);
-
-                    // Draw with scaling for iOS
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    
-                    if (this.pose) {
-                        await this.pose.send({ image: canvas });
-                    }
-
-                    video.currentTime += frameInterval;
-                    frameCount++;
-                    
-                    // Add small delay for iOS to prevent overwhelming the device
-                    if (isIOS && frameCount % 5 === 0) {
-                        await new Promise(resolve => setTimeout(resolve, 50));
-                    }
-                } catch (error) {
-                    console.error('Error processing frame:', error);
-                    // Continue processing despite frame errors, but limit retries on iOS
-                    if (isIOS && frameCount > 10) {
-                        clearInterval(processInterval);
-                        clearTimeout(timeoutId);
-                        reject(new Error('Too many processing errors on iOS. Please try a different video or use a desktop browser.'));
-                        return;
-                    }
-                    video.currentTime += frameInterval;
-                    frameCount++;
-                }
+                });
             };
 
-            // Slower processing interval for iOS
-            const intervalDelay = isIOS ? 200 : 100;
-            processInterval = setInterval(processFrame, intervalDelay);
+            waitForVideoReady().then(() => {
+                // iOS detection and optimization
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                    reject(new Error('Failed to create canvas context'));
+                    return;
+                }
+                
+                // Reduce canvas size for iOS to improve performance
+                const scaleFactor = isIOS ? 0.5 : 1;
+                canvas.width = (video.videoWidth || 640) * scaleFactor;
+                canvas.height = (video.videoHeight || 480) * scaleFactor;
+                
+                // Set output canvas size
+                this.outputCanvas.width = canvas.width;
+                this.outputCanvas.height = canvas.height;
+
+                video.currentTime = 0;
+                
+                // iOS-optimized frame processing
+                const frameInterval = isIOS ? 0.3 : (window.DEMO_CONFIG?.FRAME_INTERVAL || 0.1); // Even slower for iOS
+                const maxProcessingTime = isIOS ? 45000 : (window.DEMO_CONFIG?.PERFORMANCE?.MAX_PROCESSING_TIME || 90000); // Longer timeout
+                const maxFrames = isIOS ? 30 : 150; // Fewer frames for iOS
+                
+                let processInterval;
+                let timeoutId;
+                let frameCount = 0;
+                let consecutiveErrors = 0;
+                const maxConsecutiveErrors = 5;
+
+                // Set timeout for maximum processing time
+                timeoutId = setTimeout(() => {
+                    clearInterval(processInterval);
+                    if (frameCount > 0) {
+                        console.log(`Processing stopped due to timeout. Analyzed ${frameCount} frames.`);
+                        resolve(); // Resolve with partial results instead of rejecting
+                    } else {
+                        reject(new Error('Processing timeout - video analysis took too long. Try a shorter video.'));
+                    }
+                }, maxProcessingTime);
+
+                const processFrame = async () => {
+                    try {
+                        if (video.currentTime >= video.duration || frameCount >= maxFrames) {
+                            clearInterval(processInterval);
+                            clearTimeout(timeoutId);
+                            console.log(`Processing completed. Analyzed ${frameCount} frames.`);
+                            resolve();
+                            return;
+                        }
+
+                        // Update progress
+                        const progress = Math.min((video.currentTime / video.duration) * 100, (frameCount / maxFrames) * 100);
+                        this.updateProgress(progress);
+
+                        // Ensure video is at the correct time
+                        if (Math.abs(video.currentTime - (frameCount * frameInterval)) > 0.1) {
+                            video.currentTime = frameCount * frameInterval;
+                            // Wait a bit for video to seek
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                        }
+
+                        // Draw with scaling for iOS
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        if (this.pose) {
+                            await this.pose.send({ image: canvas });
+                        }
+
+                        video.currentTime += frameInterval;
+                        frameCount++;
+                        consecutiveErrors = 0; // Reset error counter on success
+                        
+                        // Add small delay for iOS to prevent overwhelming the device
+                        if (isIOS && frameCount % 3 === 0) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                    } catch (error) {
+                        console.error('Error processing frame:', error);
+                        consecutiveErrors++;
+                        
+                        // If too many consecutive errors, stop processing
+                        if (consecutiveErrors >= maxConsecutiveErrors) {
+                            clearInterval(processInterval);
+                            clearTimeout(timeoutId);
+                            if (frameCount > 5) {
+                                console.log(`Stopping due to errors. Analyzed ${frameCount} frames.`);
+                                resolve(); // Resolve with partial results
+                            } else {
+                                reject(new Error('Too many processing errors. Please try a different video or check your internet connection.'));
+                            }
+                            return;
+                        }
+                        
+                        // Continue with next frame
+                        video.currentTime += frameInterval;
+                        frameCount++;
+                    }
+                };
+
+                // Slower processing interval for iOS
+                const intervalDelay = isIOS ? 300 : 150;
+                processInterval = setInterval(processFrame, intervalDelay);
+            }).catch((error) => {
+                reject(new Error('Failed to prepare video for analysis: ' + error.message));
+            });
         });
     }
 
     onPoseResults(results) {
-        this.frameCount++;
-        
-        // Validate canvas context
-        if (!this.canvasCtx || !this.outputCanvas) {
-            console.warn('Canvas context not available, skipping frame rendering');
-            return;
-        }
-        
-        // Draw the current frame
-        this.canvasCtx.save();
-        this.canvasCtx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
-        
-        // Draw the video frame
-        if (this.currentVideo) {
-            try {
-                this.canvasCtx.drawImage(this.currentVideo, 0, 0, this.outputCanvas.width, this.outputCanvas.height);
-            } catch (error) {
-                console.warn('Failed to draw video frame:', error);
+        try {
+            this.frameCount++;
+            
+            // Validate canvas context
+            if (!this.canvasCtx || !this.outputCanvas) {
+                console.warn('Canvas context not available, skipping frame rendering');
+                return;
             }
-        }
-
-        if (results.poseLandmarks) {
-            try {
-                // Analyze pose for running form issues
-                const analysis = this.analyzePose(results.poseLandmarks);
-                this.analysisResults.push(analysis);
-
-                // Draw pose landmarks and connections
-                this.drawPose(results.poseLandmarks, analysis);
-            } catch (error) {
-                console.warn('Failed to analyze or draw pose:', error);
+            
+            // Draw the current frame
+            this.canvasCtx.save();
+            this.canvasCtx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
+            
+            // Draw the video frame
+            if (this.currentVideo) {
+                try {
+                    this.canvasCtx.drawImage(this.currentVideo, 0, 0, this.outputCanvas.width, this.outputCanvas.height);
+                } catch (error) {
+                    console.warn('Failed to draw video frame:', error);
+                }
             }
-        }
 
-        this.canvasCtx.restore();
+            // Process pose landmarks if available
+            if (results && results.poseLandmarks && results.poseLandmarks.length > 0) {
+                try {
+                    // Validate landmarks data
+                    const validLandmarks = results.poseLandmarks.filter(landmark => 
+                        landmark && 
+                        typeof landmark.x === 'number' && 
+                        typeof landmark.y === 'number' && 
+                        !isNaN(landmark.x) && 
+                        !isNaN(landmark.y)
+                    );
+
+                    if (validLandmarks.length >= 25) { // Need at least key body points
+                        // Analyze pose for running form issues
+                        const analysis = this.analyzePose(validLandmarks);
+                        if (analysis) {
+                            this.analysisResults.push(analysis);
+                            // Draw pose landmarks and connections
+                            this.drawPose(validLandmarks, analysis);
+                        }
+                    } else {
+                        console.warn('Insufficient valid landmarks detected');
+                    }
+                } catch (error) {
+                    console.warn('Failed to analyze or draw pose:', error);
+                }
+            } else {
+                console.warn('No pose landmarks detected in frame');
+            }
+
+            this.canvasCtx.restore();
+        } catch (error) {
+            console.error('Error in onPoseResults:', error);
+            // Don't throw error to prevent breaking the processing loop
+        }
     }
 
     analyzePose(landmarks) {
@@ -660,6 +770,7 @@ class RunFormAnalyzer {
         const runningFrames = this.analysisResults.filter(r => r.isRunning);
         const config = window.DEMO_CONFIG || {};
         
+        // Check if we have enough running frames
         if (runningFrames.length === 0) {
             this.showFeedback([{
                 type: 'warning',
@@ -670,7 +781,17 @@ class RunFormAnalyzer {
             return;
         }
 
+        // Add warning for limited data
         const feedback = [];
+        if (runningFrames.length < 10) {
+            feedback.push({
+                type: 'info',
+                title: '📊 Limited Data Notice',
+                message: `Analysis based on ${runningFrames.length} running frames. For more accurate results, try a longer video.`,
+                suggestion: 'Record 10-15 seconds of continuous running for best analysis.'
+            });
+        }
+
         const warningThreshold = config.WARNING_THRESHOLD || 10;
         const errorThreshold = config.ERROR_THRESHOLD || 30;
         
@@ -724,9 +845,12 @@ class RunFormAnalyzer {
             });
         }
 
-        // Add metrics
+        // Add metrics with data quality indicator
         const avgKneeAngle = runningFrames.reduce((sum, r) => sum + r.kneeAngle, 0) / runningFrames.length;
         const avgTorsoAngle = runningFrames.reduce((sum, r) => sum + r.torsoAngle, 0) / runningFrames.length;
+        
+        const dataQuality = runningFrames.length >= 20 ? 'High' : runningFrames.length >= 10 ? 'Medium' : 'Low';
+        const qualityColor = dataQuality === 'High' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
         
         feedback.push({
             type: 'info',
@@ -744,6 +868,10 @@ class RunFormAnalyzer {
                     <div class="metric-card">
                         <div class="metric-value">${runningFrames.length}</div>
                         <div class="metric-label">Frames Analyzed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" style="color: ${qualityColor}">${dataQuality}</div>
+                        <div class="metric-label">Data Quality</div>
                     </div>
                 </div>
             `
