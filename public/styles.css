@@ -11,6 +11,7 @@
     --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
     --warning-gradient: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
     --danger-gradient: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+    --chart-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
     
     --text-primary: #2c3e50;
     --text-secondary: #5a6c7d;
@@ -19,6 +20,7 @@
     --bg-white: #ffffff;
     --bg-light: #f8fafc;
     --bg-card: #ffffff;
+    --bg-chart: #fafbfc;
     
     --border-light: #e2e8f0;
     --border-medium: #cbd5e0;
@@ -294,6 +296,53 @@ body {
     justify-content: center;
 }
 
+/* Video Preview Section */
+.video-preview-section {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-top: 24px;
+    animation: slideDown 0.4s ease-out;
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.preview-header h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.video-info {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.info-item {
+    background: white;
+    padding: 4px 12px;
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-sm);
+}
+
+#inputVideo {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+
 /* Analysis Workspace */
 .analysis-workspace {
     display: grid;
@@ -405,6 +454,267 @@ body {
 .control-btn:hover {
     background: rgba(255,255,255,0.2);
     transform: scale(1.1);
+}
+
+/* Metrics Overview */
+.metrics-overview {
+    margin-bottom: 32px;
+}
+
+.metrics-overview h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Frame Snapshots Section */
+.frame-snapshots-section {
+    margin-bottom: 32px;
+}
+
+.frame-snapshots-section h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.snapshots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+}
+
+.snapshot-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+}
+
+.snapshot-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.snapshot-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.snapshot-info {
+    padding: 20px;
+}
+
+.snapshot-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.snapshot-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.snapshot-metrics {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+/* Charts Section */
+.charts-section {
+    margin-bottom: 32px;
+}
+
+.charts-section h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+}
+
+.chart-container {
+    background: var(--bg-chart);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+}
+
+.chart-container canvas {
+    max-height: 300px;
+}
+
+/* Coaching Section */
+.coaching-section {
+    margin-bottom: 32px;
+}
+
+.coaching-section h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.coaching-content {
+    display: grid;
+    gap: 20px;
+}
+
+.coaching-card {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.02));
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.coaching-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+}
+
+.coaching-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.coaching-insight {
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.coaching-recommendations {
+    background: rgba(255,255,255,0.5);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-top: 16px;
+}
+
+.coaching-recommendations h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.drill-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.drill-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.drill-item::before {
+    content: '💪';
+    flex-shrink: 0;
+}
+
+/* Data Quality Section */
+.data-quality-section {
+    margin-bottom: 32px;
+}
+
+.data-quality-section h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.data-quality-content {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    border: 1px solid var(--border-light);
+}
+
+.quality-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.quality-metric {
+    text-align: center;
+    padding: 16px;
+    background: white;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.quality-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.quality-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.quality-recommendations {
+    background: white;
+    border-radius: var(--radius-md);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.quality-recommendations h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
 }
 
 /* Buttons */
@@ -623,7 +933,9 @@ body {
 .export-controls {
     display: flex;
     justify-content: center;
+    gap: 16px;
     margin-top: 32px;
+    flex-wrap: wrap;
 }
 
 /* Progress Overlay */
@@ -967,6 +1279,31 @@ body {
         justify-content: center;
     }
     
+    .export-controls {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .export-controls .action-button {
+        width: 100%;
+        max-width: 280px;
+    }
+    
+    .charts-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .chart-container {
+        padding: 16px;
+    }
+    
+    .snapshots-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
     .metrics-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 16px;
@@ -1007,6 +1344,17 @@ body {
         opacity: 1;
         background: rgba(0,0,0,0.7);
     }
+    
+    .preview-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .quality-metrics {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1031,6 +1379,27 @@ body {
     
     .progress-content {
         padding: 24px 20px;
+    }
+    
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+        padding: 12px;
+    }
+    
+    .chart-container canvas {
+        max-height: 250px;
+    }
+    
+    .quality-metrics {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .coaching-card {
+        padding: 20px;
     }
 }
 

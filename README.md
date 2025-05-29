@@ -1,259 +1,183 @@
-# 🏃‍♂️ RunForm.AI - Running Form Analysis Prototype
+# RunForm.AI - Phase 2: AI Personal Running Form Coach 🏃‍♂️
 
-A client-side web application that analyzes running form using MediaPipe Pose detection. Detects common running form issues like low knee drive and excessive forward lean, providing real-time feedback with skeleton visualization.
+**Transform your running with AI-powered biomechanical analysis and personalized coaching insights.**
 
-## ✨ Features
+## 🌟 What's New in Phase 2
 
-- **📹 Video Input**: Record with webcam or upload video files
-- **🔍 Pose Detection**: Real-time pose analysis using MediaPipe
-- **🧠 Form Analysis**: Detects low knee drive and excessive forward lean
-- **📊 Visual Feedback**: Skeleton overlay with highlighted problem areas
-- **🔒 Privacy-First**: All processing happens locally in your browser
-- **📱 Mobile-Friendly**: Responsive design for all devices
-- **📸 Export Results**: Save analysis screenshots
+RunForm.AI has evolved from a simple pose analysis tool to a comprehensive **AI Personal Running Form Coach** that provides:
 
-## 🚀 Quick Start
+- 📈 **Interactive Analytics Charts** - Real-time visualization of knee angles and torso lean with elite runner baselines
+- 📸 **Best/Worst Moment Snapshots** - Visual highlights of your strongest and improvement areas with specific coaching tips
+- 🎯 **Personalized Coaching Insights** - AI-generated recommendations with targeted drill suggestions
+- 📊 **Data Quality Assessment** - Comprehensive analysis quality reports with filming improvement tips
+- 📄 **Professional Report Export** - PDF/PNG export capabilities for sharing with coaches
+- 🔗 **Social Sharing** - Share your progress and insights with your running community
+- 📱 **Full Responsive Design** - Optimized experience across all devices
+- 🛠️ **Developer/Coach Mode** - Advanced features for trainers and biomechanics professionals
 
-### Option 1: Direct Browser Usage
-1. Download all files to a folder
-2. Open `index.html` in a modern web browser
-3. Allow camera permissions when prompted
-4. Start recording or upload a running video
-5. Click "Analyze Running Form" to get feedback
+## 🚀 Key Features
 
-### Option 2: Local Server (Recommended)
-```bash
-# Using Python
-python -m http.server 8000
+### Advanced Analytics Dashboard
+- **Interactive Time-Series Charts**: Track knee angles and torso lean across your entire running stride
+- **Elite Runner Baselines**: Compare your form against optimal ranges used by professional athletes
+- **Trend Analysis**: Identify patterns and consistency in your running technique
+- **Quality Metrics**: Real-time assessment of analysis accuracy and data reliability
 
-# Using Node.js
-npx http-server
+### AI-Powered Coaching System
+- **Personalized Feedback**: Get specific, actionable insights based on your unique running pattern
+- **Targeted Drill Recommendations**: Receive custom exercise suggestions to address identified issues
+- **Progressive Tracking**: Monitor improvement over multiple sessions
+- **Issue Prioritization**: Focus on the most impactful areas for improvement first
 
-# Using PHP
-php -S localhost:8000
+### Visual Learning Tools
+- **Snapshot Gallery**: See exactly which moments in your stride need attention
+- **Before/After Comparisons**: Visual proof of your running form improvements
+- **Annotated Analysis**: Clear explanations of what to look for in each frame
+- **Coaching Overlays**: Professional-grade visual feedback on your technique
+
+### Professional Integration
+- **Coach Sharing**: Export detailed reports for professional review
+- **Session Documentation**: Maintain comprehensive records of your progress
+- **Custom Baselines**: Adjust optimal ranges based on individual goals or limitations
+- **Raw Data Export**: Access underlying metrics for advanced analysis
+
+## 🔧 Technical Architecture
+
+### AI & Machine Learning
+- **MediaPipe Pose Detection**: Google's state-of-the-art pose estimation
+- **Advanced Biomechanical Analysis**: Custom algorithms for running-specific metrics
+- **Real-time Processing**: Efficient client-side analysis for privacy and speed
+- **Adaptive Thresholds**: Smart baselines that adjust to individual running styles
+
+### Data Visualization
+- **Chart.js Integration**: Interactive, responsive charts with hover tooltips
+- **Canvas-based Rendering**: Smooth pose overlay visualization
+- **Progressive Enhancement**: Works on all devices and connection speeds
+- **Accessibility First**: Screen reader compatible and keyboard navigable
+
+### Export & Sharing
+- **PDF Generation**: Professional reports with charts, insights, and recommendations
+- **Image Export**: High-quality PNG snapshots for social sharing
+- **JSON Data Export**: Raw analysis data for advanced users and researchers
+- **Privacy-Safe Sharing**: Generate shareable summaries without sensitive data
+
+## 🎯 Use Cases
+
+### For Individual Runners
+- **Form Optimization**: Identify and correct inefficient running patterns
+- **Injury Prevention**: Spot potentially harmful biomechanical issues early
+- **Performance Enhancement**: Fine-tune technique for speed and endurance gains
+- **Progress Tracking**: Monitor improvement over time with concrete metrics
+
+### For Running Coaches
+- **Remote Analysis**: Provide feedback without in-person sessions
+- **Objective Assessment**: Supplement visual observation with quantitative data
+- **Athlete Development**: Track multiple runners' progress systematically
+- **Educational Tool**: Show athletes exactly what good form looks like
+
+### For Sports Scientists
+- **Research Platform**: Collect and analyze running biomechanics data
+- **Baseline Development**: Contribute to optimal running form standards
+- **Intervention Studies**: Measure the effectiveness of training protocols
+- **Technology Validation**: Compare AI analysis with traditional methods
+
+## 🛠️ Development Features
+
+### Demo Mode
+Access comprehensive demo analysis with sample data:
+```
+https://run-form-ai.vercel.app/?demo=true
 ```
 
-Then open `http://localhost:8000` in your browser.
-
-## 📋 Requirements
-
-### Browser Support
-- Chrome 88+ (recommended)
-- Firefox 85+
-- Safari 14+
-- Edge 88+
-
-### Permissions
-- Camera access (for recording)
-- Microphone access (for video recording)
-
-## 🎯 How to Use
-
-### 1. Input Video
-**Option A: Record with Camera**
-- Click "📹 Record with Camera"
-- Allow camera permissions
-- Click "Start Recording" and run in front of camera
-- Click "Stop Recording" when done
-
-**Option B: Upload Video**
-- Click "📁 Upload Video"
-- Select a .mp4 or .webm file from your device
-- Ensure the video shows you running from the side
-
-### 2. Analyze Form
-- Click "🔍 Analyze Running Form"
-- Wait for processing (may take 10-30 seconds)
-- View results with skeleton overlay
-
-### 3. Review Feedback
-The app analyzes two key aspects:
-
-**Low Knee Drive**
-- ✅ Good: Knee angle > 45°
-- ⚠️ Warning: 10-30% of frames show low knee drive
-- 🚨 Issue: >30% of frames show insufficient knee lift
-
-**Excessive Forward Lean**
-- ✅ Good: Torso angle > 160°
-- ⚠️ Warning: 10-30% of frames show forward lean
-- 🚨 Issue: >30% of frames show excessive lean
-
-### 4. Export Results
-- Click "📸 Export Results" to save analysis image
-- Image includes skeleton overlay and timestamp
-
-## 🔧 Technical Details
-
-### Architecture
+### Coach Mode
+Enable advanced professional features:
 ```
-RunForm.AI/
-├── index.html          # Main HTML structure
-├── styles.css          # Modern responsive styling
-├── app.js             # Core application logic
-└── README.md          # This file
+https://run-form-ai.vercel.app/?coach=true
 ```
 
-### Key Components
-
-**MediaPipe Integration**
-- Uses MediaPipe Pose for 33-point skeleton detection
-- Processes video frames at 10 FPS for analysis
-- Calculates joint angles using vector mathematics
-
-**Analysis Algorithm**
-```javascript
-// Knee Drive Analysis
-kneeAngle = calculateAngle(hip, knee, ankle)
-lowKneeDrive = kneeAngle < 45°
-
-// Forward Lean Analysis  
-torsoAngle = calculateTorsoAngle(shoulders, hips)
-excessiveForwardLean = torsoAngle < 160°
+### Developer Tools
+Access debugging and customization tools:
+```
+https://run-form-ai.vercel.app/?dev=true
 ```
 
-**Privacy Features**
-- No data sent to external servers
-- All processing happens in browser
-- Videos are not stored permanently
-- MediaPipe models loaded from CDN
+## 📊 Analysis Metrics
 
-### Performance
-- **Processing Speed**: ~10 FPS analysis
-- **Memory Usage**: ~50-100MB during analysis
-- **File Size**: Supports videos up to 100MB
-- **Accuracy**: 85-90% for clear side-view videos
+### Primary Measurements
+- **Knee Angle Range**: 85-125° (optimal), 90-120° (elite)
+- **Torso Lean Angle**: 5-15° (optimal), 8-12° (elite)
+- **Stride Characteristics**: Width, frequency, and consistency analysis
+- **Pose Confidence**: Real-time quality assessment of detection accuracy
 
-## 📱 Mobile Usage Tips
+### Quality Indicators
+- **Frame Visibility**: Percentage of clearly detected pose landmarks
+- **Analysis Completeness**: Coverage of full running stride cycle
+- **Consistency Score**: Stability of measurements across frames
+- **Recommendation Confidence**: Reliability rating for coaching suggestions
 
-1. **Recording Position**: Hold phone horizontally in landscape mode
-2. **Distance**: Stand 6-10 feet away from camera
-3. **Lighting**: Ensure good lighting for better detection
-4. **Background**: Use contrasting background for better pose detection
-5. **Duration**: Record 5-15 seconds of running for best results
+## 🔮 Future Roadmap
 
-## 🎥 Best Practices for Video
+### Phase 3 Features (Coming Soon)
+- **Multi-Runner Comparison**: Team analysis and benchmarking
+- **Real-time Live Analysis**: Instant feedback during running
+- **Wearable Integration**: Connect with heart rate monitors and running watches
+- **AI Coach Chat**: Interactive Q&A with your personal running assistant
+- **Injury Risk Prediction**: Early warning system for potential problems
+- **Custom Training Plans**: Personalized workout recommendations
 
-### Optimal Recording Setup
-- **Angle**: Side view (90° to running direction)
-- **Distance**: 6-10 feet from runner
-- **Height**: Camera at waist level
-- **Duration**: 5-15 seconds of continuous running
-- **Speed**: Comfortable running pace (not sprinting)
+### Advanced Integrations
+- **Strava Connectivity**: Automatic analysis upload to your activity feed
+- **Coach Dashboard**: Dedicated interface for managing multiple athletes
+- **Video Library**: Build a personal collection of running form analysis
+- **Community Features**: Share and learn from other runners' insights
 
-### Video Quality
-- **Resolution**: Minimum 480p, recommended 720p+
-- **Frame Rate**: 30 FPS or higher
-- **Format**: MP4, WebM, or MOV
-- **Lighting**: Good natural or artificial lighting
+## 🚀 Getting Started
 
-## 🔍 Troubleshooting
+1. **Record or Upload**: Use your device camera or upload existing running videos
+2. **AI Analysis**: Let our advanced algorithms analyze your running form
+3. **Review Insights**: Explore interactive charts, snapshots, and coaching recommendations
+4. **Take Action**: Follow personalized drill suggestions to improve your form
+5. **Track Progress**: Return regularly to monitor your improvement over time
 
-### Common Issues
+## 💡 Pro Tips
 
-**"No Running Motion Detected"**
-- Ensure you're actually running in the video
-- Check that the full body is visible
-- Try a side-view angle instead of front/back
+- **Optimal Recording**: Film from the side at waist height, 10-15 feet away
+- **Lighting**: Ensure good, even lighting without shadows
+- **Duration**: Record 8-15 seconds of natural running pace
+- **Clothing**: Wear form-fitting, contrasting colors for better detection
+- **Background**: Choose simple, uncluttered backgrounds when possible
 
-**Poor Pose Detection**
-- Improve lighting conditions
-- Use contrasting background
-- Ensure full body is in frame
-- Check camera is stable (not shaky)
+## 🔒 Privacy & Security
 
-**Camera Not Working**
-- Check browser permissions
-- Try refreshing the page
-- Ensure no other apps are using camera
-- Try a different browser
+- **Local Processing**: All analysis happens in your browser - no data uploaded
+- **No Storage**: Videos are processed temporarily and never saved
+- **Secure Sharing**: Share links contain only summary data, not personal information
+- **GDPR Compliant**: Designed with privacy-by-design principles
 
-**Slow Performance**
-- Close other browser tabs
-- Use Chrome for best performance
-- Ensure good internet for MediaPipe loading
-- Try shorter video clips
+## 🌐 Browser Support
 
-### Browser Compatibility
-```javascript
-// Check if browser supports required features
-if (!navigator.mediaDevices || !MediaRecorder) {
-    console.error('Browser not supported');
-}
-```
-
-## 🧪 Test Cases
-
-### Expected Behaviors
-
-| Scenario | Expected Result |
-|----------|----------------|
-| Good running form | ✅ "Good Running Form!" message |
-| Low knee lift | 🚨 "Low Knee Drive Detected" |
-| Excessive forward lean | 🚨 "Excessive Forward Lean" |
-| Standing still | ⚠️ "No Running Motion Detected" |
-| Poor video quality | ⚠️ Limited detection accuracy |
-
-### Sample Test Videos
-For testing, record videos with:
-1. **Normal running**: Should show good form
-2. **Exaggerated low knees**: Should trigger knee drive warning
-3. **Leaning forward**: Should trigger posture warning
-4. **Walking/standing**: Should show no running motion
-
-## 🔮 Future Enhancements
-
-### Planned Features
-- [ ] Cadence analysis (steps per minute)
-- [ ] Foot strike pattern detection
-- [ ] Arm swing analysis
-- [ ] Comparison with ideal form
-- [ ] Progress tracking over time
-- [ ] Video playback with frame-by-frame analysis
-
-### Technical Improvements
-- [ ] WebAssembly for faster processing
-- [ ] Offline mode with cached models
-- [ ] Advanced filtering algorithms
-- [ ] Multi-angle analysis support
-- [ ] Real-time analysis during recording
-
-## 📊 Performance Metrics
-
-### Analysis Accuracy
-- **Knee Drive Detection**: ~90% accuracy for clear side views
-- **Posture Analysis**: ~85% accuracy for good lighting
-- **Running Motion**: ~95% accuracy for obvious running
-
-### Processing Times
-- **Video Upload**: Instant
-- **Pose Detection**: ~2-3x video duration
-- **Analysis Generation**: 1-2 seconds
-- **Total Time**: ~30 seconds for 10-second video
+- **Chrome/Edge**: Full features (recommended)
+- **Firefox**: Full features
+- **Safari**: Full features (iOS 14.5+)
+- **Mobile**: Optimized for smartphones and tablets
+- **WebRTC**: Required for camera recording functionality
 
 ## 🤝 Contributing
 
-This is a prototype for demonstration purposes. For improvements:
+We welcome contributions from the running and tech communities:
 
-1. **Bug Reports**: Document steps to reproduce
-2. **Feature Requests**: Describe use case and benefits
-3. **Code Improvements**: Focus on accuracy and performance
-4. **UI/UX**: Enhance user experience and accessibility
+- **Bug Reports**: Help us identify and fix issues
+- **Feature Requests**: Suggest new coaching insights or analysis tools
+- **Code Contributions**: Improve algorithms and user experience
+- **Research Collaboration**: Partner with us on biomechanics studies
 
-## 📄 License
+## 📞 Support
 
-This prototype is for educational and demonstration purposes. MediaPipe is subject to Apache 2.0 license.
-
-## 🙏 Acknowledgments
-
-- **MediaPipe**: Google's pose detection framework
-- **Modern Web APIs**: Camera, MediaRecorder, Canvas
-- **Running Community**: For feedback and testing
+- **GitHub Issues**: [Report bugs or request features](https://github.com/runform-ai/issues)
+- **Documentation**: [Comprehensive guides and API docs](https://github.com/runform-ai/wiki)
 
 ---
 
-**🔒 Privacy Notice**: All analysis happens locally in your browser. No videos or data are sent to external servers. Your privacy is our priority.
+**RunForm.AI Phase 2** - Where AI meets athletic excellence. Transform your running, one stride at a time. 🏃‍♂️✨
 
-**⚡ Performance Tip**: Use Chrome browser for optimal performance and compatibility.
-
-**📱 Mobile Tip**: For best results on mobile, use landscape orientation and ensure good lighting. 
+*Built with ❤️ using MediaPipe, Chart.js, and modern web technologies.* 

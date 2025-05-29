@@ -8,13 +8,18 @@
     <meta name="author" content="RunForm.AI">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     
-    <title>RunForm.AI - Running Form Analysis</title>
+    <title>RunForm.AI - AI Personal Running Form Coach</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏃‍♂️</text></svg>">
     
     <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <!-- MediaPipe Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -34,7 +39,7 @@
                     <span class="logo-icon">🏃‍♂️</span>
                     <h1 class="logo-text">RunForm.AI</h1>
                 </div>
-                <p class="hero-subtitle">Professional Running Form Analysis powered by AI</p>
+                <p class="hero-subtitle">AI Personal Running Form Coach powered by Advanced Analytics</p>
                 <div class="tips-banner">
                     <span class="tip-icon">💡</span>
                     <p id="rotatingTip">Record from the side view for best results</p>
@@ -124,8 +129,17 @@
                                 </div>
                             </div>
                             
-                            <!-- Hidden Video Element -->
-                            <video id="inputVideo" controls style="display: none;" aria-label="Uploaded video"></video>
+                            <!-- Video Preview -->
+                            <div class="video-preview-section" id="videoPreviewSection" style="display: none;">
+                                <div class="preview-header">
+                                    <h4>📹 Video Preview</h4>
+                                    <div class="video-info" id="videoInfo">
+                                        <span class="info-item">Duration: <span id="videoDuration">0s</span></span>
+                                        <span class="info-item">Quality: <span id="videoQuality">Unknown</span></span>
+                                    </div>
+                                </div>
+                                <video id="inputVideo" controls aria-label="Uploaded video"></video>
+                            </div>
                         </div>
 
                         <!-- Analysis Controls -->
@@ -134,7 +148,7 @@
                                 <span class="btn-icon">🔍</span>
                                 <span class="btn-text">
                                     <strong>Analyze Running Form</strong>
-                                    <small>Start biomechanical analysis</small>
+                                    <small>Start AI coaching analysis</small>
                                 </span>
                             </button>
                             <button id="resetBtn" class="action-button secondary">
@@ -152,20 +166,78 @@
                 <section class="step-section" id="step3" style="display: none;">
                     <div class="step-header">
                         <span class="step-number">3</span>
-                        <h2>Analysis Results</h2>
+                        <h2>AI Coaching Analysis</h2>
                     </div>
                     
                     <div id="feedbackSection" class="results-container">
+                        <!-- Metrics Overview -->
+                        <div id="metricsOverview" class="metrics-overview">
+                            <!-- Will be populated with metrics -->
+                        </div>
+
+                        <!-- Best/Worst Frame Snapshots -->
+                        <div id="frameSnapshots" class="frame-snapshots-section">
+                            <h3>📸 Key Moments Analysis</h3>
+                            <div class="snapshots-grid" id="snapshotsGrid">
+                                <!-- Will be populated with frame snapshots -->
+                            </div>
+                        </div>
+
+                        <!-- Interactive Charts -->
+                        <div id="chartsSection" class="charts-section">
+                            <h3>📈 Performance Analytics</h3>
+                            <div class="charts-grid">
+                                <div class="chart-container">
+                                    <canvas id="kneeAngleChart"></canvas>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="torsoAngleChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Personalized Coaching -->
+                        <div id="coachingSection" class="coaching-section">
+                            <h3>🎯 Personalized Coaching</h3>
+                            <div id="coachingContent" class="coaching-content">
+                                <!-- Will be populated with coaching insights -->
+                            </div>
+                        </div>
+
+                        <!-- Data Quality Report -->
+                        <div id="dataQualitySection" class="data-quality-section">
+                            <h3>📊 Data Quality Report</h3>
+                            <div id="dataQualityContent" class="data-quality-content">
+                                <!-- Will be populated with quality metrics -->
+                            </div>
+                        </div>
+
+                        <!-- Detailed Analysis -->
                         <div id="feedbackContent" class="feedback-grid">
                             <!-- Results will be populated here -->
                         </div>
                         
+                        <!-- Export & Share Controls -->
                         <div class="export-controls">
-                            <button id="exportBtn" class="action-button success">
-                                <span class="btn-icon">📊</span>
+                            <button id="exportPdfBtn" class="action-button success">
+                                <span class="btn-icon">📄</span>
                                 <span class="btn-text">
-                                    <strong>Export Analysis</strong>
-                                    <small>Download detailed report</small>
+                                    <strong>Export PDF Report</strong>
+                                    <small>Download comprehensive analysis</small>
+                                </span>
+                            </button>
+                            <button id="exportImageBtn" class="action-button secondary">
+                                <span class="btn-icon">🖼️</span>
+                                <span class="btn-text">
+                                    <strong>Export as Image</strong>
+                                    <small>Save visual summary</small>
+                                </span>
+                            </button>
+                            <button id="shareBtn" class="action-button secondary">
+                                <span class="btn-icon">📤</span>
+                                <span class="btn-text">
+                                    <strong>Share Analysis</strong>
+                                    <small>Generate share link</small>
                                 </span>
                             </button>
                         </div>
@@ -179,8 +251,8 @@
         <div class="progress-overlay" id="progressSection" style="display: none;">
             <div class="progress-content">
                 <div class="progress-header">
-                    <h3>🔍 Analyzing Running Form</h3>
-                    <p id="progressText">Initializing pose detection...</p>
+                    <h3>🔍 AI Coaching Analysis</h3>
+                    <p id="progressText">Initializing advanced pose detection...</p>
                 </div>
                 <div class="progress-bar-container">
                     <div class="progress-bar" id="progressBar"></div>
@@ -191,11 +263,11 @@
                         <span class="stat-value" id="framesProcessed">0</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Issues Detected</span>
+                        <span class="stat-label">Insights Generated</span>
                         <span class="stat-value" id="issuesDetected">0</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Data Quality</span>
+                        <span class="stat-label">Analysis Quality</span>
                         <span class="stat-value" id="currentQuality">Building...</span>
                     </div>
                 </div>
@@ -214,8 +286,8 @@
         <div id="loadingOverlay" class="loading-overlay" style="display: none;">
             <div class="loading-content">
                 <div class="loading-spinner"></div>
-                <h3>Analyzing Running Form</h3>
-                <p>Please wait while we process your video...</p>
+                <h3>AI Coaching Analysis</h3>
+                <p>Processing your running form with advanced AI...</p>
             </div>
         </div>
 
@@ -223,7 +295,7 @@
             <div class="loading-content">
                 <div class="loading-spinner"></div>
                 <h3>🏃‍♂️ Initializing RunForm.AI</h3>
-                <p>Loading AI models and pose detection systems...</p>
+                <p>Loading AI coaching models and pose detection systems...</p>
             </div>
         </div>
 
@@ -235,7 +307,7 @@
                     <span>Privacy-First: All analysis happens locally. No data is sent to servers.</span>
                 </div>
                 <div class="footer-links">
-                    <span>Built with ❤️ using MediaPipe</span>
+                    <span>Built with ❤️ using MediaPipe & Chart.js</span>
                     <a href="https://github.com/runform-ai" target="_blank" rel="noopener">GitHub</a>
                 </div>
             </div>
@@ -244,5 +316,7 @@
 
     <!-- Main Application Script -->
     <script src="app.js"></script>
+    <script src="phase2-features.js"></script>
+    <script src="app-main.js"></script>
 </body>
 </html> 
