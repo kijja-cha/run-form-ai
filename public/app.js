@@ -634,7 +634,7 @@ class RunFormAnalyzer {
 
                     console.log(`Frame ${this.frameCount}: ${validLandmarks.length}/${results.poseLandmarks.length} valid landmarks`);
 
-                    if (validLandmarks.length >= 20) { // Reduced from 25 for more lenient detection
+                    if (validLandmarks.length >= 10) { // Reduced from 20 for very lenient detection
                         // Analyze pose for running form issues
                         const analysis = this.analyzePose(validLandmarks);
                         if (analysis) {
@@ -649,7 +649,7 @@ class RunFormAnalyzer {
                             this.drawPose(validLandmarks, analysis);
                         }
                     } else {
-                        console.warn(`Frame ${this.frameCount}: Insufficient valid landmarks (${validLandmarks.length}/20 required)`);
+                        console.warn(`Frame ${this.frameCount}: Insufficient valid landmarks (${validLandmarks.length}/10 required)`);
                     }
                 } catch (error) {
                     console.warn('Failed to analyze or draw pose:', error);
@@ -685,8 +685,8 @@ class RunFormAnalyzer {
             analysis.isRunning = this.detectRunningMotion(landmarks);
             
             // Even if not "running", still analyze if we have good pose data
-            const hasGoodPoseData = landmarks.length >= 25 && 
-                                   landmarks.filter(l => l && l.visibility > 0.3).length >= 15;
+            const hasGoodPoseData = landmarks.length >= 15 && // Reduced from 25
+                                   landmarks.filter(l => l && l.visibility > 0.2).length >= 8; // Reduced threshold
             
             if (analysis.isRunning || hasGoodPoseData) {
                 // Analyze knee drive
@@ -727,49 +727,42 @@ class RunFormAnalyzer {
         const leftAnkle = landmarks[27];
         const rightAnkle = landmarks[28];
         
-        // Check if key points are visible
-        if (!leftHip || !rightHip || !leftKnee || !rightKnee) {
-            console.warn('Missing key landmarks for running detection');
-            return false;
-        }
+        // More lenient - check if we have at least some key points
+        const hasHips = (leftHip && leftHip.visibility > 0.2) || (rightHip && rightHip.visibility > 0.2);
+        const hasKnees = (leftKnee && leftKnee.visibility > 0.2) || (rightKnee && rightKnee.visibility > 0.2);
+        const hasAnkles = (leftAnkle && leftAnkle.visibility > 0.2) || (rightAnkle && rightAnkle.visibility > 0.2);
         
-        // Lower visibility threshold for more sensitive detection
-        const minVisibility = 0.3; // Reduced from 0.5
-        if (leftHip.visibility < minVisibility || rightHip.visibility < minVisibility ||
-            leftKnee.visibility < minVisibility || rightKnee.visibility < minVisibility) {
-            console.warn('Low visibility landmarks:', {
-                leftHip: leftHip.visibility,
-                rightHip: rightHip.visibility,
-                leftKnee: leftKnee.visibility,
-                rightKnee: rightKnee.visibility
-            });
-            return false;
-        }
+        // Very lenient detection - accept if we have any leg parts
+        const hasLegMovement = hasKnees || hasAnkles;
         
-        // Check if person is roughly upright (hips above knees)
-        const avgHipY = (leftHip.y + rightHip.y) / 2;
-        const avgKneeY = (leftKnee.y + rightKnee.y) / 2;
-        
-        const isUpright = avgHipY < avgKneeY;
-        
-        // Additional checks for any movement/exercise detection
-        const hasAnkles = leftAnkle && rightAnkle && 
-                         leftAnkle.visibility > minVisibility && 
-                         rightAnkle.visibility > minVisibility;
-        
-        // More lenient detection - accept walking, jogging, or any leg movement
-        const isMoving = isUpright && hasAnkles;
-        
-        if (!isMoving) {
-            console.warn('Motion detection failed:', {
-                isUpright,
+        if (!hasLegMovement) {
+            console.warn('No leg movement detected:', {
+                hasHips,
+                hasKnees, 
                 hasAnkles,
-                avgHipY,
-                avgKneeY
+                leftKneeVis: leftKnee?.visibility,
+                rightKneeVis: rightKnee?.visibility
             });
+            return false;
         }
         
-        return isMoving;
+        // If we have hips and knees, check upright position
+        if (hasHips && hasKnees) {
+            const avgHipY = leftHip && rightHip ? (leftHip.y + rightHip.y) / 2 : 
+                           leftHip ? leftHip.y : rightHip.y;
+            const avgKneeY = leftKnee && rightKnee ? (leftKnee.y + rightKnee.y) / 2 :
+                            leftKnee ? leftKnee.y : rightKnee.y;
+            
+            const isUpright = avgHipY < avgKneeY;
+            
+            if (!isUpright) {
+                console.warn('Not upright position:', { avgHipY, avgKneeY });
+                // Still return true for leg movement even if not perfectly upright
+            }
+        }
+        
+        console.log('Motion detected with leg movement');
+        return true; // Accept any leg movement
     }
 
     calculateKneeAngle(landmarks) {

@@ -13,13 +13,15 @@ const DEMO_CONFIG = {
     MAX_VIDEO_SIZE: 200 * 1024 * 1024, // 200MB for high-quality videos
     SUPPORTED_FORMATS: ['video/mp4', 'video/webm', 'video/mov', 'video/avi', 'video/mkv'],
     
-    // MediaPipe settings - Maximum quality for desktop
+    // MediaPipe settings - More lenient for better detection
     MEDIAPIPE_CONFIG: {
-        modelComplexity: 2, // Highest complexity for best accuracy
+        modelComplexity: 1, // Reduced from 2 for better compatibility
         smoothLandmarks: true,
         enableSegmentation: false,
-        minDetectionConfidence: 0.7, // Higher confidence for accuracy
-        minTrackingConfidence: 0.7
+        minDetectionConfidence: 0.5, // Reduced from 0.7 for more lenient detection
+        minTrackingConfidence: 0.5, // Reduced from 0.7 for more lenient tracking
+        staticImageMode: false,
+        upperBodyOnly: false
     },
     
     // Camera settings - High quality for desktop
