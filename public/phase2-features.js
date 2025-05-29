@@ -1,6 +1,127 @@
 // RunForm.AI Phase 2 Features
 console.log('📊 Loading Phase 2 Features...');
 
+// Generate metrics overview
+function generateMetricsOverview() {
+    if (!analysisData || analysisData.length === 0 || !metricsOverview) return;
+    
+    console.log('📊 Generating metrics overview...');
+    
+    // Calculate summary metrics
+    const totalFrames = analysisData.length;
+    const totalIssues = analysisData.reduce((sum, frame) => sum + (frame.issues?.length || 0), 0);
+    const qualityFrames = analysisData.filter(frame => frame.quality === 'excellent' || frame.quality === 'good').length;
+    const qualityPercentage = (qualityFrames / totalFrames) * 100;
+    
+    // Average metrics
+    const avgTorsoLean = analysisData.reduce((sum, frame) => sum + (frame.metrics?.torsoLean || 0), 0) / totalFrames;
+    const avgKneeHeight = analysisData.reduce((sum, frame) => sum + (frame.metrics?.kneeHeight || 0), 0) / totalFrames;
+    
+    const metricsHTML = `
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">${totalFrames}</div>
+                <div class="metric-label">Frames Analyzed</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${totalIssues}</div>
+                <div class="metric-label">Issues Detected</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${qualityPercentage.toFixed(0)}%</div>
+                <div class="metric-label">Quality Score</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${avgTorsoLean.toFixed(1)}°</div>
+                <div class="metric-label">Avg Torso Lean</div>
+            </div>
+        </div>
+    `;
+    
+    metricsOverview.innerHTML = metricsHTML;
+}
+
+// Generate detailed feedback
+function generateDetailedFeedback() {
+    const feedbackContent = document.getElementById('feedbackContent');
+    if (!feedbackContent || !analysisData || analysisData.length === 0) return;
+    
+    console.log('📝 Generating detailed feedback...');
+    
+    // Aggregate issues by type
+    const issueStats = {};
+    analysisData.forEach(frame => {
+        if (frame.issues) {
+            frame.issues.forEach(issue => {
+                if (!issueStats[issue.type]) {
+                    issueStats[issue.type] = {
+                        count: 0,
+                        severities: { high: 0, medium: 0, low: 0 }
+                    };
+                }
+                issueStats[issue.type].count++;
+                issueStats[issue.type].severities[issue.severity || 'medium']++;
+            });
+        }
+    });
+    
+    let feedbackHTML = '';
+    
+    // Generate feedback for each issue type
+    Object.entries(issueStats).forEach(([issueType, stats]) => {
+        const percentage = (stats.count / analysisData.length) * 100;
+        let severity = 'info';
+        let icon = 'ℹ️';
+        let title = '';
+        let description = '';
+        
+        switch (issueType) {
+            case 'excessive_forward_lean':
+                severity = stats.severities.high > 0 ? 'error' : 'warning';
+                icon = '📐';
+                title = 'Forward Lean Analysis';
+                description = `Excessive forward lean detected in ${percentage.toFixed(1)}% of frames. This can lead to inefficient running and potential injury.`;
+                break;
+            case 'low_knee_drive':
+                severity = stats.severities.high > 0 ? 'error' : 'warning';
+                icon = '🦵';
+                title = 'Knee Drive Assessment';
+                description = `Low knee drive observed in ${percentage.toFixed(1)}% of frames. Improve knee lift for better running efficiency.`;
+                break;
+            case 'overstriding':
+                severity = stats.severities.high > 0 ? 'error' : 'warning';
+                icon = '👟';
+                title = 'Stride Analysis';
+                description = `Overstriding detected in ${percentage.toFixed(1)}% of frames. Focus on shorter, quicker steps for better form.`;
+                break;
+            default:
+                title = issueType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                description = `Issue detected in ${percentage.toFixed(1)}% of frames.`;
+        }
+        
+        feedbackHTML += `
+            <div class="feedback-item ${severity}">
+                <h4>${icon} ${title}</h4>
+                <p>${description}</p>
+                <p><strong>Frequency:</strong> ${stats.count} occurrences (${percentage.toFixed(1)}% of analysis)</p>
+            </div>
+        `;
+    });
+    
+    // Add overall summary if no issues
+    if (Object.keys(issueStats).length === 0) {
+        feedbackHTML = `
+            <div class="feedback-item good">
+                <h4>✅ Excellent Running Form</h4>
+                <p>Your running form analysis shows no major issues detected. Keep up the great technique!</p>
+                <p><strong>Quality:</strong> High consistency throughout the analysis period.</p>
+            </div>
+        `;
+    }
+    
+    feedbackContent.innerHTML = feedbackHTML;
+}
+
 // Chart creation and management
 function createInteractiveCharts() {
     if (!analysisData || analysisData.length === 0) return;
