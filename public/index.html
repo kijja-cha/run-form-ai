@@ -620,6 +620,10 @@ Performance Report:
     <!-- MediaPipe Dependencies (will be loaded by lazy-loader when needed) -->
     <!-- MediaPipe scripts will be loaded on demand for better performance -->
 
+    <!-- Core Architecture Scripts (Load First) -->
+    <script src="state-manager.js"></script>
+    <script src="analysis-engine.js"></script>
+    
     <!-- Main Application Scripts -->
     <script src="app.js"></script>
     <script src="phase2-features.js"></script>
