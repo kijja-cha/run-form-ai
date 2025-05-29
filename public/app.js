@@ -421,11 +421,20 @@ class RunFormAnalyzer {
             
             // Check if we have enough data for analysis
             if (this.analysisResults.length === 0) {
+                console.error('No analysis results generated');
                 this.showFeedback([{
                     type: 'error',
                     title: '❌ No Analysis Data',
-                    message: 'Unable to detect any pose data in the video. Please ensure the person is clearly visible.',
-                    suggestion: 'Try recording with better lighting, clearer view of the person, or a different angle.'
+                    message: 'Unable to detect any pose data in the video. This could be due to several factors:',
+                    suggestion: `
+                        <strong>Common issues:</strong><br>
+                        • <strong>Camera angle:</strong> Record from the side view (90° angle) for best results<br>
+                        • <strong>Distance:</strong> Stand 6-10 feet away from camera to show full body<br>
+                        • <strong>Lighting:</strong> Ensure good lighting so the person is clearly visible<br>
+                        • <strong>Movement:</strong> Make sure there's clear leg movement (walking/jogging/running)<br>
+                        • <strong>Full body:</strong> Keep head, torso, and legs in frame throughout the video<br><br>
+                        <strong>Try:</strong> Record a side-view video showing your full body while jogging in place or walking.
+                    `
                 }]);
             } else if (this.analysisResults.length < 5) {
                 this.showFeedback([{
@@ -623,22 +632,30 @@ class RunFormAnalyzer {
                         !isNaN(landmark.y)
                     );
 
-                    if (validLandmarks.length >= 25) { // Need at least key body points
+                    console.log(`Frame ${this.frameCount}: ${validLandmarks.length}/${results.poseLandmarks.length} valid landmarks`);
+
+                    if (validLandmarks.length >= 20) { // Reduced from 25 for more lenient detection
                         // Analyze pose for running form issues
                         const analysis = this.analyzePose(validLandmarks);
                         if (analysis) {
+                            console.log(`Frame ${this.frameCount} analysis:`, {
+                                isRunning: analysis.isRunning,
+                                kneeAngle: analysis.kneeAngle.toFixed(1),
+                                torsoAngle: analysis.torsoAngle.toFixed(1),
+                                debug: analysis.debug
+                            });
                             this.analysisResults.push(analysis);
                             // Draw pose landmarks and connections
                             this.drawPose(validLandmarks, analysis);
                         }
                     } else {
-                        console.warn('Insufficient valid landmarks detected');
+                        console.warn(`Frame ${this.frameCount}: Insufficient valid landmarks (${validLandmarks.length}/20 required)`);
                     }
                 } catch (error) {
                     console.warn('Failed to analyze or draw pose:', error);
                 }
             } else {
-                console.warn('No pose landmarks detected in frame');
+                console.warn(`Frame ${this.frameCount}: No pose landmarks detected`);
             }
 
             this.canvasCtx.restore();
@@ -656,24 +673,47 @@ class RunFormAnalyzer {
             excessiveForwardLean: false,
             kneeAngle: 0,
             torsoAngle: 0,
-            isRunning: false
+            isRunning: false,
+            debug: {
+                landmarkCount: landmarks.length,
+                visibleLandmarks: landmarks.filter(l => l && l.visibility > 0.3).length
+            }
         };
 
         try {
-            // Check if person is in running position
+            // Check if person is in running/moving position
             analysis.isRunning = this.detectRunningMotion(landmarks);
             
-            if (analysis.isRunning) {
+            // Even if not "running", still analyze if we have good pose data
+            const hasGoodPoseData = landmarks.length >= 25 && 
+                                   landmarks.filter(l => l && l.visibility > 0.3).length >= 15;
+            
+            if (analysis.isRunning || hasGoodPoseData) {
                 // Analyze knee drive
                 analysis.kneeAngle = this.calculateKneeAngle(landmarks);
-                analysis.lowKneeDrive = analysis.kneeAngle < (config.KNEE_DRIVE_THRESHOLD || 45);
+                if (!isNaN(analysis.kneeAngle) && analysis.kneeAngle > 0) {
+                    analysis.lowKneeDrive = analysis.kneeAngle < (config.KNEE_DRIVE_THRESHOLD || 45);
+                }
 
                 // Analyze forward lean
                 analysis.torsoAngle = this.calculateTorsoAngle(landmarks);
-                analysis.excessiveForwardLean = analysis.torsoAngle < (config.FORWARD_LEAN_THRESHOLD || 160);
+                if (!isNaN(analysis.torsoAngle) && analysis.torsoAngle > 0) {
+                    analysis.excessiveForwardLean = analysis.torsoAngle < (config.FORWARD_LEAN_THRESHOLD || 160);
+                }
+                
+                // If we have good pose data but not detected as "running", still mark as valid
+                if (!analysis.isRunning && hasGoodPoseData) {
+                    analysis.isRunning = true; // Override for analysis purposes
+                    console.log('Overriding running detection due to good pose data');
+                }
             }
+            
+            analysis.debug.kneeAngle = analysis.kneeAngle;
+            analysis.debug.torsoAngle = analysis.torsoAngle;
+            
         } catch (error) {
             console.error('Error analyzing pose:', error);
+            analysis.debug.error = error.message;
         }
 
         return analysis;
@@ -684,14 +724,25 @@ class RunFormAnalyzer {
         const rightHip = landmarks[24];
         const leftKnee = landmarks[25];
         const rightKnee = landmarks[26];
+        const leftAnkle = landmarks[27];
+        const rightAnkle = landmarks[28];
         
         // Check if key points are visible
-        if (!leftHip || !rightHip || !leftKnee || !rightKnee) return false;
+        if (!leftHip || !rightHip || !leftKnee || !rightKnee) {
+            console.warn('Missing key landmarks for running detection');
+            return false;
+        }
         
-        // Check visibility threshold
-        const minVisibility = 0.5;
+        // Lower visibility threshold for more sensitive detection
+        const minVisibility = 0.3; // Reduced from 0.5
         if (leftHip.visibility < minVisibility || rightHip.visibility < minVisibility ||
             leftKnee.visibility < minVisibility || rightKnee.visibility < minVisibility) {
+            console.warn('Low visibility landmarks:', {
+                leftHip: leftHip.visibility,
+                rightHip: rightHip.visibility,
+                leftKnee: leftKnee.visibility,
+                rightKnee: rightKnee.visibility
+            });
             return false;
         }
         
@@ -699,7 +750,26 @@ class RunFormAnalyzer {
         const avgHipY = (leftHip.y + rightHip.y) / 2;
         const avgKneeY = (leftKnee.y + rightKnee.y) / 2;
         
-        return avgHipY < avgKneeY;
+        const isUpright = avgHipY < avgKneeY;
+        
+        // Additional checks for any movement/exercise detection
+        const hasAnkles = leftAnkle && rightAnkle && 
+                         leftAnkle.visibility > minVisibility && 
+                         rightAnkle.visibility > minVisibility;
+        
+        // More lenient detection - accept walking, jogging, or any leg movement
+        const isMoving = isUpright && hasAnkles;
+        
+        if (!isMoving) {
+            console.warn('Motion detection failed:', {
+                isUpright,
+                hasAnkles,
+                avgHipY,
+                avgKneeY
+            });
+        }
+        
+        return isMoving;
     }
 
     calculateKneeAngle(landmarks) {
