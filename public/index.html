@@ -26,130 +26,219 @@
     <script src="demo-config.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>🏃‍♂️ RunForm.AI</h1>
-            <p>AI-Powered Running Form Analysis</p>
-            <div class="tips-banner">
-                <p id="rotatingTip">💡 Tip: Record from the side view for best results</p>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="hero-section">
+            <div class="hero-content">
+                <div class="logo">
+                    <span class="logo-icon">🏃‍♂️</span>
+                    <h1 class="logo-text">RunForm.AI</h1>
+                </div>
+                <p class="hero-subtitle">Professional Running Form Analysis powered by AI</p>
+                <div class="tips-banner">
+                    <span class="tip-icon">💡</span>
+                    <p id="rotatingTip">Record from the side view for best results</p>
+                </div>
             </div>
         </header>
 
-        <div class="main-content">
-            <!-- Input Section -->
-            <div class="input-section">
-                <div class="input-options">
-                    <button id="webcamBtn" class="btn btn-primary" aria-label="Start camera recording">
-                        📹 Record with Camera
-                    </button>
-                    <button id="uploadBtn" class="btn btn-secondary" aria-label="Upload video file">
-                        📁 Upload Video
-                    </button>
-                    <input type="file" id="videoUpload" accept="video/*" style="display: none;" aria-label="Video file input">
-                </div>
-
-                <!-- Camera Section -->
-                <div id="cameraSection" class="camera-section" style="display: none;">
-                    <video id="webcam" autoplay muted playsinline aria-label="Camera preview"></video>
-                    <div class="camera-controls">
-                        <button id="startRecording" class="btn btn-success" aria-label="Start recording">Start Recording</button>
-                        <button id="stopRecording" class="btn btn-danger" style="display: none;" aria-label="Stop recording">Stop Recording</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Video Analysis Section -->
-            <div class="video-section">
-                <div class="canvas-container">
-                    <canvas id="outputCanvas" width="640" height="480"></canvas>
-                    <div class="video-controls" id="videoControls" style="display: none;">
-                        <button class="control-btn" id="playPauseBtn" title="Play/Pause">⏯️</button>
-                        <button class="control-btn" id="stepBackBtn" title="Step Back">⏮️</button>
-                        <button class="control-btn" id="stepForwardBtn" title="Step Forward">⏭️</button>
-                        <button class="control-btn" id="slowMotionBtn" title="Slow Motion">🐌</button>
-                        <span class="frame-info" id="frameInfo">Frame: 0</span>
-                    </div>
-                </div>
+        <!-- Main Content -->
+        <main class="main-container">
+            <div class="content-wrapper">
                 
-                <!-- Analysis Status Indicator -->
-                <div class="analysis-status" id="analysisStatus" style="display: none;">
-                    <div class="status-content">
-                        <span class="status-text">Ready</span>
-                        <div class="status-progress"></div>
+                <!-- Step 1: Input Selection -->
+                <section class="step-section" id="step1">
+                    <div class="step-header">
+                        <span class="step-number">1</span>
+                        <h2>Choose Input Method</h2>
                     </div>
-                </div>
+                    <div class="input-options">
+                        <button id="webcamBtn" class="option-card webcam-option" aria-label="Start camera recording">
+                            <div class="option-icon">📹</div>
+                            <h3>Record with Camera</h3>
+                            <p>Use your device camera to record running form</p>
+                        </button>
+                        <button id="uploadBtn" class="option-card upload-option" aria-label="Upload video file">
+                            <div class="option-icon">📁</div>
+                            <h3>Upload Video</h3>
+                            <p>Analyze existing video files (MP4, MOV, WebM)</p>
+                        </button>
+                        <input type="file" id="videoUpload" accept="video/*" style="display: none;" aria-label="Video file input">
+                    </div>
 
-                <!-- Enhanced Progress Section -->
-                <div class="progress-section" id="progressSection" style="display: none;">
-                    <div class="progress-header">
-                        <h4>🔍 Analyzing Running Form</h4>
-                        <span class="progress-text" id="progressText">Initializing...</span>
+                    <!-- Camera Section -->
+                    <div id="cameraSection" class="camera-container" style="display: none;">
+                        <div class="video-preview">
+                            <video id="webcam" autoplay muted playsinline aria-label="Camera preview"></video>
+                            <div class="camera-overlay">
+                                <div class="recording-indicator" id="recordingIndicator" style="display: none;">
+                                    <span class="pulse-dot"></span>
+                                    <span>Recording</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="camera-controls">
+                            <button id="startRecording" class="control-button primary">
+                                <span class="btn-icon">●</span>
+                                Start Recording
+                            </button>
+                            <button id="stopRecording" class="control-button danger" style="display: none;">
+                                <span class="btn-icon">■</span>
+                                Stop Recording
+                            </button>
+                        </div>
                     </div>
-                    <div class="progress-container">
-                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                </section>
+
+                <!-- Step 2: Analysis Section -->
+                <section class="step-section" id="step2" style="display: none;">
+                    <div class="step-header">
+                        <span class="step-number">2</span>
+                        <h2>Analysis Workspace</h2>
                     </div>
-                    <div class="progress-details" id="progressDetails">
-                        <span>Frames processed: <strong id="framesProcessed">0</strong></span>
-                        <span>Issues detected: <strong id="issuesDetected">0</strong></span>
-                        <span>Quality: <strong id="currentQuality">Analyzing...</strong></span>
+                    
+                    <div class="analysis-workspace">
+                        <div class="video-analysis-container">
+                            <div class="analysis-canvas">
+                                <canvas id="outputCanvas" width="640" height="480"></canvas>
+                                <div class="canvas-overlay">
+                                    <div class="frame-info" id="frameInfo">Frame: 0</div>
+                                    <div class="analysis-indicators">
+                                        <div class="indicator" id="poseIndicator">
+                                            <span class="indicator-dot"></span>
+                                            <span>Pose Detection</span>
+                                        </div>
+                                        <div class="indicator" id="motionIndicator">
+                                            <span class="indicator-dot"></span>
+                                            <span>Motion Analysis</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Interactive Controls -->
+                                <div class="video-controls" id="videoControls" style="display: none;">
+                                    <button class="control-btn" id="stepBackBtn" title="Previous Frame">⏮️</button>
+                                    <button class="control-btn" id="playPauseBtn" title="Play/Pause">⏯️</button>
+                                    <button class="control-btn" id="stepForwardBtn" title="Next Frame">⏭️</button>
+                                    <button class="control-btn" id="slowMotionBtn" title="Slow Motion">🐌</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Hidden Video Element -->
+                            <video id="inputVideo" controls style="display: none;" aria-label="Uploaded video"></video>
+                        </div>
+
+                        <!-- Analysis Controls -->
+                        <div class="analysis-controls">
+                            <button id="analyzeBtn" class="action-button primary" disabled>
+                                <span class="btn-icon">🔍</span>
+                                <span class="btn-text">
+                                    <strong>Analyze Running Form</strong>
+                                    <small>Start biomechanical analysis</small>
+                                </span>
+                            </button>
+                            <button id="resetBtn" class="action-button secondary">
+                                <span class="btn-icon">🔄</span>
+                                <span class="btn-text">
+                                    <strong>Reset</strong>
+                                    <small>Start over</small>
+                                </span>
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                <!-- Step 3: Results Section -->
+                <section class="step-section" id="step3" style="display: none;">
+                    <div class="step-header">
+                        <span class="step-number">3</span>
+                        <h2>Analysis Results</h2>
+                    </div>
+                    
+                    <div id="feedbackSection" class="results-container">
+                        <div id="feedbackContent" class="feedback-grid">
+                            <!-- Results will be populated here -->
+                        </div>
+                        
+                        <div class="export-controls">
+                            <button id="exportBtn" class="action-button success">
+                                <span class="btn-icon">📊</span>
+                                <span class="btn-text">
+                                    <strong>Export Analysis</strong>
+                                    <small>Download detailed report</small>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
             </div>
+        </main>
 
-            <!-- Hidden Video Element -->
-            <video id="inputVideo" controls style="display: none;" aria-label="Uploaded video"></video>
-            
-            <!-- Analysis Controls -->
-            <div class="controls">
-                <button id="analyzeBtn" class="btn btn-primary" disabled aria-label="Start analysis">
-                    🔍 Analyze Running Form
-                </button>
-                <button id="resetBtn" class="btn btn-secondary" aria-label="Reset application">
-                    🔄 Reset
-                </button>
-            </div>
-
-            <!-- Feedback Section -->
-            <div id="feedbackSection" class="feedback-section" style="display: none;">
-                <h3>📊 Analysis Results</h3>
-                <div id="feedbackContent" class="feedback-content">
-                    <!-- Feedback will be populated here -->
+        <!-- Progress Overlay -->
+        <div class="progress-overlay" id="progressSection" style="display: none;">
+            <div class="progress-content">
+                <div class="progress-header">
+                    <h3>🔍 Analyzing Running Form</h3>
+                    <p id="progressText">Initializing pose detection...</p>
                 </div>
-                
-                <div class="export-section">
-                    <button id="exportBtn" class="btn btn-success" aria-label="Export analysis results">
-                        📸 Export Results
-                    </button>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-stats">
+                    <div class="stat">
+                        <span class="stat-label">Frames Processed</span>
+                        <span class="stat-value" id="framesProcessed">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Issues Detected</span>
+                        <span class="stat-value" id="issuesDetected">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Data Quality</span>
+                        <span class="stat-value" id="currentQuality">Building...</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Loading Overlay -->
-        <div id="loadingOverlay" class="loading-overlay" style="display: none;" role="dialog" aria-labelledby="loadingText">
+        <!-- Status Indicator -->
+        <div class="status-indicator" id="analysisStatus" style="display: none;">
+            <div class="status-content">
+                <span class="status-icon">🔄</span>
+                <span class="status-text">Ready</span>
+            </div>
+        </div>
+
+        <!-- Loading Overlays -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
             <div class="loading-content">
-                <div class="spinner" aria-hidden="true"></div>
-                <p id="loadingText">Analyzing your running form...</p>
-                <p id="loadingSubtext">This may take 10-30 seconds</p>
+                <div class="loading-spinner"></div>
+                <h3>Analyzing Running Form</h3>
+                <p>Please wait while we process your video...</p>
             </div>
         </div>
 
-        <!-- MediaPipe Loading Overlay -->
-        <div id="mediapipeLoading" class="loading-overlay" style="display: flex;" role="dialog" aria-labelledby="mediapipeLoadingText">
+        <div id="mediapipeLoading" class="loading-overlay" style="display: flex;">
             <div class="loading-content">
-                <div class="spinner" aria-hidden="true"></div>
-                <p id="mediapipeLoadingText">🏃‍♂️ Loading RunForm.AI...</p>
-                <p id="mediapipeLoadingSubtext">Initializing pose detection models</p>
+                <div class="loading-spinner"></div>
+                <h3>🏃‍♂️ Initializing RunForm.AI</h3>
+                <p>Loading AI models and pose detection systems...</p>
             </div>
         </div>
 
-        <!-- Privacy Notice -->
-        <div class="privacy-notice">
-            <p>🔒 <strong>Privacy-First:</strong> All analysis happens locally in your browser. No data is sent to servers.</p>
-        </div>
-        
         <!-- Footer -->
-        <footer class="footer">
-            <p>Built with ❤️ using MediaPipe • <a href="https://github.com/runform-ai" target="_blank" rel="noopener">GitHub</a></p>
+        <footer class="app-footer">
+            <div class="footer-content">
+                <div class="privacy-notice">
+                    <span class="privacy-icon">🔒</span>
+                    <span>Privacy-First: All analysis happens locally. No data is sent to servers.</span>
+                </div>
+                <div class="footer-links">
+                    <span>Built with ❤️ using MediaPipe</span>
+                    <a href="https://github.com/runform-ai" target="_blank" rel="noopener">GitHub</a>
+                </div>
+            </div>
         </footer>
     </div>
 
