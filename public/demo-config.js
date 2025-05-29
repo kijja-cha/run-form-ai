@@ -1,4 +1,4 @@
-// Demo Configuration for RunForm.AI
+// Demo Configuration for RunForm.AI - Desktop Optimized
 const DEMO_CONFIG = {
     // Analysis thresholds
     KNEE_DRIVE_THRESHOLD: 45, // degrees
@@ -8,24 +8,24 @@ const DEMO_CONFIG = {
     WARNING_THRESHOLD: 10,
     ERROR_THRESHOLD: 30,
     
-    // Video processing settings
-    FRAME_INTERVAL: 0.1, // seconds between analyzed frames
-    MAX_VIDEO_SIZE: 100 * 1024 * 1024, // 100MB
-    SUPPORTED_FORMATS: ['video/mp4', 'video/webm', 'video/mov', 'video/avi'],
+    // Video processing settings - Desktop optimized
+    FRAME_INTERVAL: 0.05, // Higher frequency for better analysis (20 FPS)
+    MAX_VIDEO_SIZE: 200 * 1024 * 1024, // 200MB for high-quality videos
+    SUPPORTED_FORMATS: ['video/mp4', 'video/webm', 'video/mov', 'video/avi', 'video/mkv'],
     
-    // MediaPipe settings
+    // MediaPipe settings - Maximum quality for desktop
     MEDIAPIPE_CONFIG: {
-        modelComplexity: 1,
+        modelComplexity: 2, // Highest complexity for best accuracy
         smoothLandmarks: true,
         enableSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.7, // Higher confidence for accuracy
+        minTrackingConfidence: 0.7
     },
     
-    // Camera settings
+    // Camera settings - High quality for desktop
     CAMERA_CONFIG: {
-        width: 640,
-        height: 480,
+        width: 1280,
+        height: 720,
         frameRate: 30
     },
     
@@ -59,25 +59,29 @@ const DEMO_CONFIG = {
         NO_RUNNING: {
             title: '⚠️ No Running Motion Detected',
             message: 'Please ensure you are running in the video for accurate analysis.',
-            suggestion: 'Record a side-view video of yourself running for 5-15 seconds.'
+            suggestion: 'Record a side-view video of yourself running for 10-20 seconds.'
         }
     },
     
-    // Demo tips
+    // Desktop-optimized tips
     TIPS: [
-        "📱 Hold your phone horizontally for better analysis",
-        "🏃‍♂️ Record from the side view (90° angle)",
-        "💡 Ensure good lighting for better pose detection",
-        "📏 Stand 6-10 feet away from the camera",
-        "⏱️ Record 5-15 seconds of continuous running",
-        "🎯 Keep your full body in frame throughout the video"
+        "💡 Record from the side view for best results",
+        "📱 Hold your camera horizontally",
+        "🏃‍♂️ Ensure good lighting for better detection",
+        "📏 Stand 6-10 feet away from camera",
+        "⏱️ Record 10-20 seconds of running",
+        "🎯 Keep your full body in frame throughout the video",
+        "🖥️ Use Chrome or Firefox for optimal performance",
+        "📹 Higher resolution videos provide better analysis",
+        "🔍 Ensure the runner is clearly visible throughout",
+        "⚡ Desktop browsers provide the most accurate analysis"
     ],
     
-    // Performance metrics
+    // Performance metrics - Desktop optimized
     PERFORMANCE: {
-        TARGET_FPS: 10,
-        MAX_PROCESSING_TIME: 60000, // 60 seconds
-        MEMORY_WARNING_THRESHOLD: 100 * 1024 * 1024 // 100MB
+        TARGET_FPS: 20, // Higher FPS for better analysis
+        MAX_PROCESSING_TIME: 120000, // 2 minutes for comprehensive analysis
+        MEMORY_WARNING_THRESHOLD: 200 * 1024 * 1024 // 200MB
     },
 
     // Validation function
@@ -101,4 +105,5 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!DEMO_CONFIG.validate()) {
         console.error('Configuration validation failed');
     }
+    console.log('RunForm.AI configured for desktop optimization');
 } 

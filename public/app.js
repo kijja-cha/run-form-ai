@@ -11,46 +11,10 @@ class RunFormAnalyzer {
         this.frameCount = 0;
         this.tipIndex = 0;
         
-        // Detect iOS and show warning
-        this.detectiOS();
-        
         this.initializeElements();
         this.initializeMediaPipe();
         this.setupEventListeners();
         this.startTipRotation();
-    }
-
-    detectiOS() {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-        const isLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 2;
-        
-        if (isIOS) {
-            // Show iOS warning after a short delay
-            setTimeout(() => {
-                const iosWarning = document.getElementById('iosWarning');
-                if (iosWarning) {
-                    let warningMessage = '📱 <strong>iOS Notice:</strong> ';
-                    
-                    if (isLowEndDevice || isLowMemory) {
-                        warningMessage += 'Older iOS device detected. Performance may be limited. Consider using a desktop browser or newer device for best results.';
-                    } else {
-                        warningMessage += 'iOS optimization enabled. For best performance, close other apps and use shorter videos (5-10 seconds).';
-                    }
-                    
-                    iosWarning.innerHTML = `<p>${warningMessage}</p>`;
-                    iosWarning.style.display = 'block';
-                }
-            }, 2000);
-            
-            const deviceInfo = {
-                cores: navigator.hardwareConcurrency || 'unknown',
-                memory: navigator.deviceMemory || 'unknown',
-                isLowEnd: isLowEndDevice || isLowMemory
-            };
-            
-            console.log('iOS device detected - aggressive performance optimizations applied', deviceInfo);
-        }
     }
 
     initializeElements() {
@@ -93,58 +57,23 @@ class RunFormAnalyzer {
                 throw new Error('MediaPipe Pose library not loaded. Please check your internet connection.');
             }
 
-            // Enhanced iOS detection and optimization
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-            const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-            const isLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 2;
-            const isSafariMobile = isIOS && isSafari;
-            
-            if (isIOS) {
-                console.log('iOS device detected, applying aggressive optimization settings');
-                
-                // Check WebAssembly support
-                if (!window.WebAssembly) {
-                    throw new Error('WebAssembly not supported on this iOS version. Please update your iOS or use a different device.');
-                }
-                
-                // Force garbage collection if available
-                if (window.gc) {
-                    window.gc();
-                }
-                
-                // Reduce memory pressure
-                if (isLowMemory || isLowEndDevice || isSafariMobile) {
-                    console.warn('Safari iOS or low-end device detected, applying maximum optimization');
-                }
-            }
-
             this.pose = new Pose({
                 locateFile: (file) => {
                     return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
                 }
             });
 
-            // Ultra-aggressive iOS Safari optimization
-            const config = isIOS ? {
-                modelComplexity: 0, // Minimum complexity for iOS
-                smoothLandmarks: false, // Disabled for performance
-                enableSegmentation: false,
-                smoothSegmentation: false,
-                // Ultra-conservative settings for Safari
-                minDetectionConfidence: isSafariMobile ? 0.9 : (isLowEndDevice ? 0.9 : 0.8),
-                minTrackingConfidence: isSafariMobile ? 0.9 : (isLowEndDevice ? 0.9 : 0.8),
-                // Additional iOS optimizations
-                staticImageMode: false,
-                upperBodyOnly: false
-            } : (window.DEMO_CONFIG?.MEDIAPIPE_CONFIG || {
-                modelComplexity: 1,
+            // Desktop-optimized configuration for best accuracy
+            const config = window.DEMO_CONFIG?.MEDIAPIPE_CONFIG || {
+                modelComplexity: 2, // Highest complexity for best accuracy
                 smoothLandmarks: true,
                 enableSegmentation: false,
                 smoothSegmentation: false,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
+                minDetectionConfidence: 0.7, // Higher confidence for accuracy
+                minTrackingConfidence: 0.7,
+                staticImageMode: false,
+                upperBodyOnly: false
+            };
 
             this.pose.setOptions(config);
             this.pose.onResults(this.onPoseResults.bind(this));
@@ -155,18 +84,14 @@ class RunFormAnalyzer {
                 mediapipeLoading.style.display = 'none';
             }
             
-            console.log('MediaPipe Pose initialized successfully', isIOS ? (isSafariMobile ? '(Safari iOS ultra-optimized)' : '(iOS aggressively optimized)') : '');
+            console.log('MediaPipe Pose initialized for desktop with highest accuracy settings');
         } catch (error) {
             console.error('Error initializing MediaPipe:', error);
             
             // Update loading overlay to show error
             const mediapipeLoading = document.getElementById('mediapipeLoading');
             if (mediapipeLoading) {
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-                const errorMessage = isIOS ? 
-                    (isSafari ? 'Safari iOS has limited MediaPipe performance. For best results, try Chrome on iOS or use a desktop browser.' : 'MediaPipe performance may be limited on iOS. For best results, use a desktop browser or newer iPhone/iPad.') :
-                    'Please check your internet connection and refresh the page';
+                const errorMessage = 'Please check your internet connection and refresh the page. For best results, use Chrome or Firefox on desktop.';
                     
                 mediapipeLoading.innerHTML = `
                     <div class="loading-content">
@@ -186,7 +111,7 @@ class RunFormAnalyzer {
                 `;
             }
             
-            this.showError('Failed to initialize pose detection. ' + (error.message || 'Please try using a desktop browser for best results.'));
+            this.showError('Failed to initialize pose detection. ' + (error.message || 'Please try using Chrome or Firefox for best results.'));
         }
     }
 
@@ -212,45 +137,23 @@ class RunFormAnalyzer {
     }
 
     startTipRotation() {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-        const isSafariMobile = isIOS && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        
-        let tips;
-        if (isSafariMobile) {
-            tips = [
-                "🦎 Safari iOS Tip: Use very short videos (3-5 seconds) for best performance",
-                "🔄 Safari iOS Tip: Try Chrome iOS app for better MediaPipe performance",
-                "🔋 Safari iOS Tip: Close ALL other apps and tabs before analysis",
-                "📱 Safari iOS Tip: Restart Safari if analysis fails repeatedly",
-                "💡 Safari iOS Tip: Bright lighting is crucial for Safari's limited processing",
-                "⚡ Safari iOS Tip: Consider using a desktop browser for full analysis"
-            ];
-        } else if (isIOS) {
-            tips = [
-                "📱 iOS Tip: Use shorter videos (5-10 seconds) for better performance",
-                "🔋 iOS Tip: Close other apps to free up memory before analysis",
-                "📏 iOS Tip: Hold device horizontally and stay 6-8 feet from camera",
-                "💡 iOS Tip: Ensure good lighting - iOS cameras work best in bright conditions",
-                "⚡ iOS Tip: For best results, use a newer iPhone/iPad or try desktop browser",
-                "🎯 iOS Tip: Record side-view running for most accurate analysis"
-            ];
-        } else {
-            tips = window.DEMO_CONFIG?.TIPS || [
-                "💡 Record from the side view for best results",
-                "📱 Hold your phone horizontally",
-                "🏃‍♂️ Ensure good lighting for better detection",
-                "📏 Stand 6-10 feet away from camera",
-                "⏱️ Record 5-15 seconds of running"
-            ];
-        }
+        const tips = window.DEMO_CONFIG?.TIPS || [
+            "💡 Record from the side view for best results",
+            "📱 Hold your camera horizontally",
+            "🏃‍♂️ Ensure good lighting for better detection",
+            "📏 Stand 6-10 feet away from camera",
+            "⏱️ Record 10-20 seconds of running",
+            "🎯 Keep your full body in frame throughout the video",
+            "🖥️ Use Chrome or Firefox for optimal performance",
+            "📹 Higher resolution videos provide better analysis"
+        ];
 
         setInterval(() => {
             if (this.rotatingTip) {
                 this.tipIndex = (this.tipIndex + 1) % tips.length;
                 this.rotatingTip.textContent = tips[this.tipIndex];
             }
-        }, isSafariMobile ? 6000 : (isIOS ? 5000 : 4000)); // Slower rotation for Safari iOS
+        }, 4000);
     }
 
     async startWebcam() {
@@ -582,13 +485,6 @@ class RunFormAnalyzer {
             };
 
             waitForVideoReady().then(() => {
-                // iOS detection and optimization
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-                const isLowMemory = navigator.deviceMemory && navigator.deviceMemory <= 2;
-                const isSafariMobile = isIOS && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 
@@ -597,22 +493,9 @@ class RunFormAnalyzer {
                     return;
                 }
                 
-                // Ultra-aggressive canvas size reduction for Safari iOS
-                let scaleFactor = 1;
-                if (isIOS) {
-                    if (isSafariMobile) {
-                        scaleFactor = 0.25; // Ultra-aggressive for Safari iOS
-                    } else if (isLowEndDevice || isLowMemory) {
-                        scaleFactor = 0.3; // Very aggressive for old devices
-                    } else {
-                        scaleFactor = 0.4; // Still aggressive for newer iOS
-                    }
-                } else if (isMobile) {
-                    scaleFactor = 0.6;
-                }
-                
-                canvas.width = (video.videoWidth || 640) * scaleFactor;
-                canvas.height = (video.videoHeight || 480) * scaleFactor;
+                // Desktop optimization - use full resolution for best accuracy
+                canvas.width = video.videoWidth || 1280;
+                canvas.height = video.videoHeight || 720;
                 
                 // Set output canvas size
                 this.outputCanvas.width = canvas.width;
@@ -620,34 +503,16 @@ class RunFormAnalyzer {
 
                 video.currentTime = 0;
                 
-                // Ultra-aggressive iOS Safari-optimized frame processing
-                let frameInterval, maxProcessingTime, maxFrames;
-                
-                if (isIOS) {
-                    if (isSafariMobile) {
-                        frameInterval = 0.8; // Ultra-slow for Safari iOS
-                        maxProcessingTime = 60000; // 60 seconds max for Safari
-                        maxFrames = 25; // More frames for Safari
-                    } else if (isLowEndDevice || isLowMemory) {
-                        frameInterval = 0.5; // Very slow for old devices
-                        maxProcessingTime = 30000; // 30 seconds max
-                        maxFrames = 15; // Very few frames
-                    } else {
-                        frameInterval = 0.4; // Slower for newer iOS
-                        maxProcessingTime = 40000; // 40 seconds max
-                        maxFrames = 20; // Fewer frames
-                    }
-                } else {
-                    frameInterval = window.DEMO_CONFIG?.FRAME_INTERVAL || 0.1;
-                    maxProcessingTime = window.DEMO_CONFIG?.PERFORMANCE?.MAX_PROCESSING_TIME || 90000;
-                    maxFrames = 150;
-                }
+                // Desktop-optimized frame processing for maximum accuracy
+                const frameInterval = window.DEMO_CONFIG?.FRAME_INTERVAL || 0.05; // Higher frequency for better analysis
+                const maxProcessingTime = window.DEMO_CONFIG?.PERFORMANCE?.MAX_PROCESSING_TIME || 120000; // 2 minutes max
+                const maxFrames = 300; // More frames for comprehensive analysis
                 
                 let processInterval;
                 let timeoutId;
                 let frameCount = 0;
                 let consecutiveErrors = 0;
-                const maxConsecutiveErrors = isSafariMobile ? 2 : (isIOS ? 3 : 5); // Ultra-low tolerance for Safari
+                const maxConsecutiveErrors = 10; // Higher tolerance for desktop
 
                 // Set timeout for maximum processing time
                 timeoutId = setTimeout(() => {
@@ -677,11 +542,11 @@ class RunFormAnalyzer {
                         // Ensure video is at the correct time
                         if (Math.abs(video.currentTime - (frameCount * frameInterval)) > 0.1) {
                             video.currentTime = frameCount * frameInterval;
-                            // Wait much longer for video to seek on Safari iOS
-                            await new Promise(resolve => setTimeout(resolve, isSafariMobile ? 200 : (isIOS ? 100 : 50)));
+                            // Wait for video to seek
+                            await new Promise(resolve => setTimeout(resolve, 50));
                         }
 
-                        // Draw with scaling
+                        // Draw with full resolution
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                         
                         if (this.pose) {
@@ -692,29 +557,6 @@ class RunFormAnalyzer {
                         frameCount++;
                         consecutiveErrors = 0; // Reset error counter on success
                         
-                        // Ultra-aggressive delays for Safari iOS
-                        if (isIOS) {
-                            if (isSafariMobile) {
-                                // Ultra-aggressive delays for Safari iOS
-                                await new Promise(resolve => setTimeout(resolve, 300));
-                                // Force garbage collection every frame on Safari
-                                if (window.gc && frameCount % 1 === 0) {
-                                    window.gc();
-                                }
-                            } else if (isLowEndDevice || isLowMemory) {
-                                // Very aggressive delays for old devices
-                                await new Promise(resolve => setTimeout(resolve, 200));
-                                // Force garbage collection every frame on low-end devices
-                                if (window.gc && frameCount % 2 === 0) {
-                                    window.gc();
-                                }
-                            } else {
-                                // Regular delays for newer iOS
-                                if (frameCount % 2 === 0) {
-                                    await new Promise(resolve => setTimeout(resolve, 150));
-                                }
-                            }
-                        }
                     } catch (error) {
                         console.error('Error processing frame:', error);
                         consecutiveErrors++;
@@ -723,7 +565,7 @@ class RunFormAnalyzer {
                         if (consecutiveErrors >= maxConsecutiveErrors) {
                             clearInterval(processInterval);
                             clearTimeout(timeoutId);
-                            if (frameCount > (isSafariMobile ? 2 : 3)) { // Ultra-low threshold for Safari
+                            if (frameCount > 10) {
                                 console.log(`Stopping due to errors. Analyzed ${frameCount} frames.`);
                                 resolve(); // Resolve with partial results
                             } else {
@@ -738,21 +580,8 @@ class RunFormAnalyzer {
                     }
                 };
 
-                // Ultra-slow processing interval for Safari iOS
-                let intervalDelay;
-                if (isIOS) {
-                    if (isSafariMobile) {
-                        intervalDelay = 800; // Ultra-slow for Safari iOS
-                    } else if (isLowEndDevice || isLowMemory) {
-                        intervalDelay = 600; // Very slow for old devices
-                    } else {
-                        intervalDelay = 400; // Slower for newer iOS
-                    }
-                } else {
-                    intervalDelay = 150;
-                }
-                
-                processInterval = setInterval(processFrame, intervalDelay);
+                // Desktop processing interval for smooth performance
+                processInterval = setInterval(processFrame, 100);
             }).catch((error) => {
                 reject(new Error('Failed to prepare video for analysis: ' + error.message));
             });
@@ -1009,33 +838,20 @@ class RunFormAnalyzer {
                 type: 'warning',
                 title: config.MESSAGES?.NO_RUNNING?.title || '⚠️ No Running Motion Detected',
                 message: config.MESSAGES?.NO_RUNNING?.message || 'Please ensure you are running in the video for accurate analysis.',
-                suggestion: config.MESSAGES?.NO_RUNNING?.suggestion || 'Record a side-view video of yourself running for 5-15 seconds.'
+                suggestion: config.MESSAGES?.NO_RUNNING?.suggestion || 'Record a side-view video of yourself running for 10-20 seconds.'
             }]);
             return;
         }
 
         // Add warning for limited data
         const feedback = [];
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafariMobile = isIOS && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         
-        if (runningFrames.length < 10) {
-            let message = `Analysis based on ${runningFrames.length} running frames. For more accurate results, try a longer video.`;
-            let suggestion = 'Record 10-15 seconds of continuous running for best analysis.';
-            
-            if (isSafariMobile) {
-                message = `Analysis based on ${runningFrames.length} running frames. Safari iOS has performance limitations.`;
-                suggestion = 'On Safari iOS: Use very short videos (3-5 seconds), close all other apps, and try Chrome iOS for better performance.';
-            } else if (isIOS) {
-                message = `Analysis based on ${runningFrames.length} running frames. iOS optimization limited frame count for performance.`;
-                suggestion = 'On iOS: Use 5-10 second videos, close other apps, and ensure good lighting for better results.';
-            }
-            
+        if (runningFrames.length < 20) {
             feedback.push({
                 type: 'info',
-                title: isSafariMobile ? '🦎 Safari iOS Notice' : (isIOS ? '📱 iOS Analysis Notice' : '📊 Limited Data Notice'),
-                message: message,
-                suggestion: suggestion
+                title: '📊 Limited Data Notice',
+                message: `Analysis based on ${runningFrames.length} running frames. For more accurate results, try a longer video.`,
+                suggestion: 'Record 15-30 seconds of continuous running for comprehensive analysis.'
             });
         }
 
@@ -1092,24 +908,14 @@ class RunFormAnalyzer {
             });
         }
 
-        // Add metrics with adjusted data quality indicator for Safari iOS
+        // Add metrics with desktop-optimized data quality indicator
         const avgKneeAngle = runningFrames.reduce((sum, r) => sum + r.kneeAngle, 0) / runningFrames.length;
         const avgTorsoAngle = runningFrames.reduce((sum, r) => sum + r.torsoAngle, 0) / runningFrames.length;
         
-        // Adjusted thresholds for Safari iOS
+        // Desktop data quality thresholds
         let dataQuality, qualityColor;
-        if (isSafariMobile) {
-            // More realistic thresholds for Safari iOS
-            dataQuality = runningFrames.length >= 6 ? 'Good' : runningFrames.length >= 3 ? 'Medium' : 'Low';
-            qualityColor = dataQuality === 'Good' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
-        } else if (isIOS) {
-            // Adjusted thresholds for other iOS browsers
-            dataQuality = runningFrames.length >= 10 ? 'Good' : runningFrames.length >= 5 ? 'Medium' : 'Low';
-            qualityColor = dataQuality === 'Good' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
-        } else {
-            dataQuality = runningFrames.length >= 20 ? 'High' : runningFrames.length >= 10 ? 'Medium' : 'Low';
-            qualityColor = dataQuality === 'High' ? '#28a745' : dataQuality === 'Medium' ? '#ffc107' : '#dc3545';
-        }
+        dataQuality = runningFrames.length >= 50 ? 'Excellent' : runningFrames.length >= 30 ? 'High' : runningFrames.length >= 15 ? 'Good' : 'Fair';
+        qualityColor = dataQuality === 'Excellent' ? '#198754' : dataQuality === 'High' ? '#28a745' : dataQuality === 'Good' ? '#20c997' : '#ffc107';
         
         feedback.push({
             type: 'info',
