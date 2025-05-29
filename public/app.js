@@ -38,6 +38,21 @@ class RunFormAnalyzer {
         this.progressBar = document.getElementById('progressBar');
         this.rotatingTip = document.getElementById('rotatingTip');
 
+        // Enhanced UI elements
+        this.analysisStatus = document.getElementById('analysisStatus');
+        this.videoControls = document.getElementById('videoControls');
+        this.frameInfo = document.getElementById('frameInfo');
+        this.progressText = document.getElementById('progressText');
+        this.framesProcessed = document.getElementById('framesProcessed');
+        this.issuesDetected = document.getElementById('issuesDetected');
+        this.currentQuality = document.getElementById('currentQuality');
+
+        // Interactive controls
+        this.playPauseBtn = document.getElementById('playPauseBtn');
+        this.stepBackBtn = document.getElementById('stepBackBtn');
+        this.stepForwardBtn = document.getElementById('stepForwardBtn');
+        this.slowMotionBtn = document.getElementById('slowMotionBtn');
+
         // Set up canvas context with error handling
         if (this.outputCanvas) {
             this.canvasCtx = this.outputCanvas.getContext('2d');
@@ -413,6 +428,7 @@ class RunFormAnalyzer {
 
         this.showLoading(true);
         this.showProgress(true);
+        this.updateAnalysisStatus('processing', 'Starting analysis...');
         this.analysisResults = [];
         this.frameCount = 0;
 
@@ -422,6 +438,7 @@ class RunFormAnalyzer {
             // Check if we have enough data for analysis
             if (this.analysisResults.length === 0) {
                 console.error('No analysis results generated');
+                this.updateAnalysisStatus('error', 'No pose data detected');
                 this.showFeedback([{
                     type: 'error',
                     title: '❌ No Analysis Data',
@@ -437,6 +454,7 @@ class RunFormAnalyzer {
                     `
                 }]);
             } else if (this.analysisResults.length < 5) {
+                this.updateAnalysisStatus('complete', `Limited data: ${this.analysisResults.length} frames`);
                 this.showFeedback([{
                     type: 'warning',
                     title: '⚠️ Limited Analysis Data',
@@ -444,7 +462,13 @@ class RunFormAnalyzer {
                     suggestion: 'For better results, try a longer video (10-15 seconds) with clearer view of the runner.'
                 }]);
             } else {
+                this.updateAnalysisStatus('complete', `Analysis complete: ${this.analysisResults.length} frames`);
                 this.generateFeedback();
+            }
+            
+            // Show video controls after analysis
+            if (this.videoControls && this.analysisResults.length > 0) {
+                this.videoControls.style.display = 'flex';
             }
             
             this.showLoading(false);
@@ -464,6 +488,7 @@ class RunFormAnalyzer {
                 errorMessage += 'Please try again with a clearer video or check your internet connection.';
             }
             
+            this.updateAnalysisStatus('error', 'Analysis failed');
             this.showError(errorMessage);
             this.showLoading(false);
             this.showProgress(false);
@@ -669,11 +694,18 @@ class RunFormAnalyzer {
         const config = window.DEMO_CONFIG || {};
         const analysis = {
             frame: this.frameCount,
+            timestamp: this.frameCount * (config.FRAME_INTERVAL || 0.05),
             lowKneeDrive: false,
             excessiveForwardLean: false,
             kneeAngle: 0,
             torsoAngle: 0,
             isRunning: false,
+            // Advanced metrics
+            leftFootHeight: 0,
+            rightFootHeight: 0,
+            stridePhase: 'unknown',
+            footStrike: 'unknown',
+            verticalOscillation: 0,
             debug: {
                 landmarkCount: landmarks.length,
                 visibleLandmarks: landmarks.filter(l => l && l.visibility > 0.3).length
@@ -689,17 +721,19 @@ class RunFormAnalyzer {
                                    landmarks.filter(l => l && l.visibility > 0.2).length >= 8; // Reduced threshold
             
             if (analysis.isRunning || hasGoodPoseData) {
-                // Analyze knee drive
+                // Basic analysis
                 analysis.kneeAngle = this.calculateKneeAngle(landmarks);
                 if (!isNaN(analysis.kneeAngle) && analysis.kneeAngle > 0) {
                     analysis.lowKneeDrive = analysis.kneeAngle < (config.KNEE_DRIVE_THRESHOLD || 45);
                 }
 
-                // Analyze forward lean
                 analysis.torsoAngle = this.calculateTorsoAngle(landmarks);
                 if (!isNaN(analysis.torsoAngle) && analysis.torsoAngle > 0) {
                     analysis.excessiveForwardLean = analysis.torsoAngle < (config.FORWARD_LEAN_THRESHOLD || 160);
                 }
+
+                // Advanced biomechanical analysis
+                this.calculateAdvancedMetrics(landmarks, analysis);
                 
                 // If we have good pose data but not detected as "running", still mark as valid
                 if (!analysis.isRunning && hasGoodPoseData) {
@@ -710,6 +744,7 @@ class RunFormAnalyzer {
             
             analysis.debug.kneeAngle = analysis.kneeAngle;
             analysis.debug.torsoAngle = analysis.torsoAngle;
+            analysis.debug.stridePhase = analysis.stridePhase;
             
         } catch (error) {
             console.error('Error analyzing pose:', error);
@@ -717,6 +752,81 @@ class RunFormAnalyzer {
         }
 
         return analysis;
+    }
+
+    calculateAdvancedMetrics(landmarks, analysis) {
+        // Calculate foot heights for stride analysis
+        const leftAnkle = landmarks[27];
+        const rightAnkle = landmarks[28];
+        const leftHip = landmarks[23];
+        const rightHip = landmarks[24];
+
+        if (leftAnkle && leftHip && leftAnkle.visibility > 0.3 && leftHip.visibility > 0.3) {
+            analysis.leftFootHeight = Math.abs(leftHip.y - leftAnkle.y);
+        }
+
+        if (rightAnkle && rightHip && rightAnkle.visibility > 0.3 && rightHip.visibility > 0.3) {
+            analysis.rightFootHeight = Math.abs(rightHip.y - rightAnkle.y);
+        }
+
+        // Determine stride phase
+        if (analysis.leftFootHeight > 0 && analysis.rightFootHeight > 0) {
+            const heightDiff = Math.abs(analysis.leftFootHeight - analysis.rightFootHeight);
+            
+            if (heightDiff < 0.05) {
+                analysis.stridePhase = 'double_support';
+            } else if (analysis.leftFootHeight > analysis.rightFootHeight) {
+                analysis.stridePhase = 'left_swing';
+            } else {
+                analysis.stridePhase = 'right_swing';
+            }
+        }
+
+        // Foot strike pattern analysis
+        this.analyzeFootStrike(landmarks, analysis);
+
+        // Vertical oscillation (center of mass movement)
+        this.calculateVerticalOscillation(landmarks, analysis);
+    }
+
+    analyzeFootStrike(landmarks, analysis) {
+        const leftAnkle = landmarks[27];
+        const rightAnkle = landmarks[28];
+        const leftToe = landmarks[31];
+        const rightToe = landmarks[32];
+
+        // Analyze foot angle at contact
+        if (leftAnkle && leftToe && leftAnkle.visibility > 0.3 && leftToe.visibility > 0.3) {
+            const footAngle = Math.atan2(leftToe.y - leftAnkle.y, leftToe.x - leftAnkle.x) * (180 / Math.PI);
+            
+            if (Math.abs(footAngle) < 10) {
+                analysis.footStrike = 'midfoot';
+            } else if (footAngle > 10) {
+                analysis.footStrike = 'heel';
+            } else {
+                analysis.footStrike = 'forefoot';
+            }
+        }
+    }
+
+    calculateVerticalOscillation(landmarks, analysis) {
+        // Calculate center of mass approximation
+        const leftHip = landmarks[23];
+        const rightHip = landmarks[24];
+        const leftShoulder = landmarks[11];
+        const rightShoulder = landmarks[12];
+
+        if (leftHip && rightHip && leftShoulder && rightShoulder) {
+            const centerY = (leftHip.y + rightHip.y + leftShoulder.y + rightShoulder.y) / 4;
+            
+            // Store for comparison with previous frames
+            if (!this.previousCenterY) {
+                this.previousCenterY = centerY;
+            }
+            
+            analysis.verticalOscillation = Math.abs(centerY - this.previousCenterY);
+            this.previousCenterY = centerY;
+        }
     }
 
     detectRunningMotion(landmarks) {
@@ -836,31 +946,65 @@ class RunFormAnalyzer {
         const width = this.outputCanvas.width;
         const height = this.outputCanvas.height;
 
-        // Define pose connections
+        // Define pose connections with enhanced styling
         const connections = [
-            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // Arms
-            [11, 23], [12, 24], [23, 24], // Torso
-            [23, 25], [25, 27], [24, 26], [26, 28], // Legs
-            [27, 29], [29, 31], [28, 30], [30, 32] // Feet
+            // Arms
+            { start: 11, end: 12, type: 'torso' }, // Shoulders
+            { start: 11, end: 13, type: 'arm' }, { start: 13, end: 15, type: 'arm' }, // Left arm
+            { start: 12, end: 14, type: 'arm' }, { start: 14, end: 16, type: 'arm' }, // Right arm
+            // Torso
+            { start: 11, end: 23, type: 'torso' }, { start: 12, end: 24, type: 'torso' }, 
+            { start: 23, end: 24, type: 'torso' }, // Hip line
+            // Legs - color-coded based on analysis
+            { start: 23, end: 25, type: 'leg', side: 'left' }, { start: 25, end: 27, type: 'leg', side: 'left' }, // Left leg
+            { start: 24, end: 26, type: 'leg', side: 'right' }, { start: 26, end: 28, type: 'leg', side: 'right' }, // Right leg
+            // Feet
+            { start: 27, end: 29, type: 'foot' }, { start: 29, end: 31, type: 'foot' }, // Left foot
+            { start: 28, end: 30, type: 'foot' }, { start: 30, end: 32, type: 'foot' } // Right foot
         ];
 
-        // Draw connections
-        this.canvasCtx.strokeStyle = '#4ecdc4';
-        this.canvasCtx.lineWidth = 3;
-        
-        connections.forEach(([start, end]) => {
-            const startPoint = landmarks[start];
-            const endPoint = landmarks[end];
+        // Enhanced color scheme based on analysis
+        const getConnectionColor = (connection) => {
+            if (connection.type === 'leg' && analysis.lowKneeDrive) {
+                return '#ff4757'; // Red for low knee drive
+            }
+            if (connection.type === 'torso' && analysis.excessiveForwardLean) {
+                return '#ff6b35'; // Orange for forward lean
+            }
+            if (connection.type === 'leg') {
+                return '#2ed573'; // Green for good legs
+            }
+            if (connection.type === 'torso') {
+                return '#1e90ff'; // Blue for good torso
+            }
+            return '#4ecdc4'; // Default cyan
+        };
+
+        // Draw connections with enhanced styling
+        connections.forEach(connection => {
+            const startPoint = landmarks[connection.start];
+            const endPoint = landmarks[connection.end];
             
             if (startPoint && endPoint && startPoint.visibility > 0.5 && endPoint.visibility > 0.5) {
+                const color = getConnectionColor(connection);
+                
+                this.canvasCtx.strokeStyle = color;
+                this.canvasCtx.lineWidth = connection.type === 'leg' ? 4 : 3;
+                this.canvasCtx.lineCap = 'round';
+                this.canvasCtx.shadowColor = color;
+                this.canvasCtx.shadowBlur = 2;
+                
                 this.canvasCtx.beginPath();
                 this.canvasCtx.moveTo(startPoint.x * width, startPoint.y * height);
                 this.canvasCtx.lineTo(endPoint.x * width, endPoint.y * height);
                 this.canvasCtx.stroke();
+                
+                // Reset shadow
+                this.canvasCtx.shadowBlur = 0;
             }
         });
 
-        // Draw landmarks
+        // Draw enhanced landmarks
         landmarks.forEach((landmark, index) => {
             if (landmark.visibility > 0.5) {
                 const x = landmark.x * width;
@@ -868,16 +1012,33 @@ class RunFormAnalyzer {
                 
                 let color = '#ff6b6b';
                 let radius = 4;
+                let isProblematic = false;
                 
-                // Highlight problematic joints
+                // Enhanced landmark styling based on analysis
                 if (analysis.lowKneeDrive && (index === 25 || index === 26)) {
-                    color = '#ff3333';
-                    radius = 6;
+                    color = '#ff4757';
+                    radius = 8;
+                    isProblematic = true;
                 }
                 
                 if (analysis.excessiveForwardLean && (index === 11 || index === 12)) {
-                    color = '#ff3333';
+                    color = '#ff6b35';
+                    radius = 8;
+                    isProblematic = true;
+                }
+
+                // Key joint highlighting
+                if ([23, 24, 25, 26, 27, 28].includes(index)) { // Hips, knees, ankles
                     radius = 6;
+                    if (!isProblematic) {
+                        color = '#2ed573'; // Green for good joints
+                    }
+                }
+
+                // Draw landmark with glow effect for problematic areas
+                if (isProblematic) {
+                    this.canvasCtx.shadowColor = color;
+                    this.canvasCtx.shadowBlur = 10;
                 }
 
                 this.canvasCtx.fillStyle = color;
@@ -887,8 +1048,76 @@ class RunFormAnalyzer {
                 this.canvasCtx.arc(x, y, radius, 0, 2 * Math.PI);
                 this.canvasCtx.fill();
                 this.canvasCtx.stroke();
+                
+                // Reset shadow
+                this.canvasCtx.shadowBlur = 0;
             }
         });
+
+        // Real-time angle display
+        this.drawAngleDisplay(landmarks, analysis, width, height);
+    }
+
+    drawAngleDisplay(landmarks, analysis, width, height) {
+        // Display knee angle
+        if (analysis.kneeAngle > 0) {
+            const leftKnee = landmarks[25];
+            const rightKnee = landmarks[26];
+            
+            // Choose the knee with better visibility
+            const knee = (leftKnee && leftKnee.visibility > 0.5) ? leftKnee : 
+                        (rightKnee && rightKnee.visibility > 0.5) ? rightKnee : null;
+            
+            if (knee) {
+                const x = knee.x * width;
+                const y = knee.y * height;
+                
+                // Angle display background
+                this.canvasCtx.fillStyle = analysis.lowKneeDrive ? 'rgba(255, 71, 87, 0.9)' : 'rgba(46, 213, 115, 0.9)';
+                this.canvasCtx.fillRect(x - 30, y - 40, 60, 25);
+                
+                // Angle text
+                this.canvasCtx.fillStyle = 'white';
+                this.canvasCtx.font = 'bold 12px Arial';
+                this.canvasCtx.textAlign = 'center';
+                this.canvasCtx.fillText(`${analysis.kneeAngle.toFixed(0)}°`, x, y - 22);
+            }
+        }
+
+        // Display torso angle
+        if (analysis.torsoAngle > 0) {
+            const leftShoulder = landmarks[11];
+            const rightShoulder = landmarks[12];
+            
+            if (leftShoulder && rightShoulder && leftShoulder.visibility > 0.5 && rightShoulder.visibility > 0.5) {
+                const x = ((leftShoulder.x + rightShoulder.x) / 2) * width;
+                const y = ((leftShoulder.y + rightShoulder.y) / 2) * height;
+                
+                // Torso angle display
+                this.canvasCtx.fillStyle = analysis.excessiveForwardLean ? 'rgba(255, 107, 53, 0.9)' : 'rgba(30, 144, 255, 0.9)';
+                this.canvasCtx.fillRect(x - 30, y - 15, 60, 25);
+                
+                this.canvasCtx.fillStyle = 'white';
+                this.canvasCtx.font = 'bold 12px Arial';
+                this.canvasCtx.textAlign = 'center';
+                this.canvasCtx.fillText(`${analysis.torsoAngle.toFixed(0)}°`, x, y + 2);
+            }
+        }
+
+        // Frame counter and status
+        this.canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.canvasCtx.fillRect(10, 10, 200, 50);
+        
+        this.canvasCtx.fillStyle = 'white';
+        this.canvasCtx.font = 'bold 14px Arial';
+        this.canvasCtx.textAlign = 'left';
+        this.canvasCtx.fillText(`Frame: ${this.frameCount}`, 20, 30);
+        
+        // Status indicator
+        const status = analysis.lowKneeDrive || analysis.excessiveForwardLean ? 'Issues Detected' : 'Good Form';
+        const statusColor = analysis.lowKneeDrive || analysis.excessiveForwardLean ? '#ff4757' : '#2ed573';
+        this.canvasCtx.fillStyle = statusColor;
+        this.canvasCtx.fillText(`Status: ${status}`, 20, 50);
     }
 
     generateFeedback() {
@@ -906,6 +1135,9 @@ class RunFormAnalyzer {
             return;
         }
 
+        // Calculate advanced metrics
+        const advancedMetrics = this.calculateAdvancedFeedbackMetrics(runningFrames);
+        
         // Add warning for limited data
         const feedback = [];
         
@@ -961,6 +1193,9 @@ class RunFormAnalyzer {
             });
         }
 
+        // Advanced biomechanical feedback
+        this.addAdvancedFeedback(feedback, advancedMetrics, runningFrames);
+
         // Add positive feedback if form is good
         if (lowKneePercentage <= warningThreshold && forwardLeanPercentage <= warningThreshold) {
             feedback.push({
@@ -971,7 +1206,126 @@ class RunFormAnalyzer {
             });
         }
 
-        // Add metrics with desktop-optimized data quality indicator
+        // Enhanced metrics display
+        this.addEnhancedMetrics(feedback, runningFrames, advancedMetrics);
+
+        this.showFeedback(feedback);
+    }
+
+    calculateAdvancedFeedbackMetrics(runningFrames) {
+        const metrics = {
+            cadence: 0,
+            strideCount: 0,
+            avgVerticalOscillation: 0,
+            footStrikePattern: {},
+            stridePhases: {}
+        };
+
+        // Calculate cadence (steps per minute)
+        const strideSwitches = this.detectStrideSwitches(runningFrames);
+        const totalTime = runningFrames.length * (window.DEMO_CONFIG?.FRAME_INTERVAL || 0.05);
+        metrics.cadence = Math.round((strideSwitches * 60) / totalTime);
+        metrics.strideCount = strideSwitches;
+
+        // Average vertical oscillation
+        const oscillations = runningFrames.filter(f => f.verticalOscillation > 0).map(f => f.verticalOscillation);
+        if (oscillations.length > 0) {
+            metrics.avgVerticalOscillation = oscillations.reduce((a, b) => a + b, 0) / oscillations.length;
+        }
+
+        // Foot strike pattern distribution
+        runningFrames.forEach(frame => {
+            if (frame.footStrike && frame.footStrike !== 'unknown') {
+                metrics.footStrikePattern[frame.footStrike] = (metrics.footStrikePattern[frame.footStrike] || 0) + 1;
+            }
+        });
+
+        // Stride phase distribution
+        runningFrames.forEach(frame => {
+            if (frame.stridePhase && frame.stridePhase !== 'unknown') {
+                metrics.stridePhases[frame.stridePhase] = (metrics.stridePhases[frame.stridePhase] || 0) + 1;
+            }
+        });
+
+        return metrics;
+    }
+
+    detectStrideSwitches(frames) {
+        let switches = 0;
+        let lastPhase = null;
+
+        frames.forEach(frame => {
+            if (frame.stridePhase && frame.stridePhase !== 'unknown' && frame.stridePhase !== 'double_support') {
+                if (lastPhase && lastPhase !== frame.stridePhase) {
+                    switches++;
+                }
+                lastPhase = frame.stridePhase;
+            }
+        });
+
+        return switches;
+    }
+
+    addAdvancedFeedback(feedback, metrics, runningFrames) {
+        // Cadence feedback
+        if (metrics.cadence > 0) {
+            if (metrics.cadence < 160) {
+                feedback.push({
+                    type: 'warning',
+                    title: '🏃‍♂️ Low Cadence Detected',
+                    message: `Your cadence is ${metrics.cadence} steps/min. Optimal range is 170-180 steps/min.`,
+                    suggestion: 'Try taking shorter, quicker steps to increase your cadence and improve efficiency.'
+                });
+            } else if (metrics.cadence > 200) {
+                feedback.push({
+                    type: 'warning',
+                    title: '🏃‍♂️ High Cadence Detected',
+                    message: `Your cadence is ${metrics.cadence} steps/min. This might indicate overstriding.`,
+                    suggestion: 'Focus on landing with your feet closer to your center of gravity.'
+                });
+            } else {
+                feedback.push({
+                    type: 'good',
+                    title: '🎯 Excellent Cadence',
+                    message: `Your cadence of ${metrics.cadence} steps/min is in the optimal range!`,
+                    suggestion: 'Maintain this cadence for efficient running.'
+                });
+            }
+        }
+
+        // Foot strike feedback
+        const dominantStrike = Object.keys(metrics.footStrikePattern).reduce((a, b) => 
+            metrics.footStrikePattern[a] > metrics.footStrikePattern[b] ? a : b, 'unknown');
+        
+        if (dominantStrike !== 'unknown') {
+            const strikeAdvice = {
+                'heel': {
+                    type: 'info',
+                    title: '👟 Heel Strike Pattern',
+                    message: 'You primarily land on your heels. This is common but may increase impact forces.',
+                    suggestion: 'Consider transitioning to a midfoot strike for better shock absorption.'
+                },
+                'midfoot': {
+                    type: 'good',
+                    title: '👟 Optimal Midfoot Strike',
+                    message: 'Excellent! You\'re landing on your midfoot, which provides good shock absorption.',
+                    suggestion: 'Continue maintaining this efficient foot strike pattern.'
+                },
+                'forefoot': {
+                    type: 'info',
+                    title: '👟 Forefoot Strike Pattern',
+                    message: 'You land on your forefoot. This can be efficient but may stress your calves.',
+                    suggestion: 'Ensure adequate calf strength and consider heel drop in your shoes.'
+                }
+            };
+
+            if (strikeAdvice[dominantStrike]) {
+                feedback.push(strikeAdvice[dominantStrike]);
+            }
+        }
+    }
+
+    addEnhancedMetrics(feedback, runningFrames, advancedMetrics) {
         const avgKneeAngle = runningFrames.reduce((sum, r) => sum + r.kneeAngle, 0) / runningFrames.length;
         const avgTorsoAngle = runningFrames.reduce((sum, r) => sum + r.torsoAngle, 0) / runningFrames.length;
         
@@ -982,7 +1336,7 @@ class RunFormAnalyzer {
         
         feedback.push({
             type: 'info',
-            title: '📊 Analysis Metrics',
+            title: '📊 Comprehensive Analysis Metrics',
             message: `
                 <div class="metrics-grid">
                     <div class="metric-card">
@@ -992,6 +1346,14 @@ class RunFormAnalyzer {
                     <div class="metric-card">
                         <div class="metric-value">${avgTorsoAngle.toFixed(1)}°</div>
                         <div class="metric-label">Average Torso Angle</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${advancedMetrics.cadence || 'N/A'}</div>
+                        <div class="metric-label">Cadence (steps/min)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${advancedMetrics.strideCount}</div>
+                        <div class="metric-label">Stride Switches</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-value">${runningFrames.length}</div>
@@ -1004,8 +1366,6 @@ class RunFormAnalyzer {
                 </div>
             `
         });
-
-        this.showFeedback(feedback);
     }
 
     showFeedback(feedback) {
@@ -1069,6 +1429,75 @@ class RunFormAnalyzer {
     updateProgress(percentage) {
         if (this.progressBar) {
             this.progressBar.style.width = `${percentage}%`;
+        }
+        
+        // Enhanced progress updates
+        if (this.progressText) {
+            if (percentage < 25) {
+                this.progressText.textContent = 'Initializing pose detection...';
+            } else if (percentage < 50) {
+                this.progressText.textContent = 'Analyzing movement patterns...';
+            } else if (percentage < 75) {
+                this.progressText.textContent = 'Calculating biomechanics...';
+            } else if (percentage < 95) {
+                this.progressText.textContent = 'Generating insights...';
+            } else {
+                this.progressText.textContent = 'Finalizing analysis...';
+            }
+        }
+
+        // Update real-time metrics
+        if (this.framesProcessed) {
+            this.framesProcessed.textContent = this.analysisResults.length;
+        }
+
+        if (this.issuesDetected) {
+            const issues = this.analysisResults.filter(r => r.lowKneeDrive || r.excessiveForwardLean).length;
+            this.issuesDetected.textContent = issues;
+        }
+
+        if (this.currentQuality) {
+            const frames = this.analysisResults.length;
+            const quality = frames >= 50 ? 'Excellent' : frames >= 30 ? 'High' : frames >= 15 ? 'Good' : 'Building...';
+            this.currentQuality.textContent = quality;
+        }
+
+        // Update frame info
+        if (this.frameInfo) {
+            this.frameInfo.textContent = `Frame: ${this.frameCount}`;
+        }
+    }
+
+    updateAnalysisStatus(status, message = '') {
+        if (!this.analysisStatus) return;
+
+        this.analysisStatus.style.display = 'block';
+        const statusText = this.analysisStatus.querySelector('.status-text');
+        
+        // Remove existing status classes
+        this.analysisStatus.classList.remove('processing', 'complete', 'error');
+        
+        switch (status) {
+            case 'processing':
+                this.analysisStatus.classList.add('processing');
+                statusText.textContent = message || 'Analyzing...';
+                break;
+            case 'complete':
+                this.analysisStatus.classList.add('complete');
+                statusText.textContent = message || 'Analysis Complete!';
+                setTimeout(() => {
+                    this.analysisStatus.style.display = 'none';
+                }, 3000);
+                break;
+            case 'error':
+                this.analysisStatus.classList.add('error');
+                statusText.textContent = message || 'Analysis Failed';
+                setTimeout(() => {
+                    this.analysisStatus.style.display = 'none';
+                }, 5000);
+                break;
+            default:
+                this.analysisStatus.style.display = 'none';
         }
     }
 

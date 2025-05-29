@@ -58,26 +58,55 @@
                 </div>
             </div>
 
-            <!-- Analysis Section -->
-            <div class="analysis-section">
-                <div class="video-container">
-                    <video id="inputVideo" controls style="display: none;" aria-label="Uploaded video"></video>
-                    <canvas id="outputCanvas" aria-label="Analysis visualization"></canvas>
-                </div>
-
-                <div class="controls">
-                    <button id="analyzeBtn" class="btn btn-primary" disabled aria-label="Start analysis">
-                        🔍 Analyze Running Form
-                    </button>
-                    <button id="resetBtn" class="btn btn-secondary" aria-label="Reset application">
-                        🔄 Reset
-                    </button>
+            <!-- Video Analysis Section -->
+            <div class="video-section">
+                <div class="canvas-container">
+                    <canvas id="outputCanvas" width="640" height="480"></canvas>
+                    <div class="video-controls" id="videoControls" style="display: none;">
+                        <button class="control-btn" id="playPauseBtn" title="Play/Pause">⏯️</button>
+                        <button class="control-btn" id="stepBackBtn" title="Step Back">⏮️</button>
+                        <button class="control-btn" id="stepForwardBtn" title="Step Forward">⏭️</button>
+                        <button class="control-btn" id="slowMotionBtn" title="Slow Motion">🐌</button>
+                        <span class="frame-info" id="frameInfo">Frame: 0</span>
+                    </div>
                 </div>
                 
-                <!-- Progress Bar -->
-                <div id="progressSection" class="analysis-progress" style="display: none;">
-                    <div id="progressBar" class="analysis-progress-bar"></div>
+                <!-- Analysis Status Indicator -->
+                <div class="analysis-status" id="analysisStatus" style="display: none;">
+                    <div class="status-content">
+                        <span class="status-text">Ready</span>
+                        <div class="status-progress"></div>
+                    </div>
                 </div>
+
+                <!-- Enhanced Progress Section -->
+                <div class="progress-section" id="progressSection" style="display: none;">
+                    <div class="progress-header">
+                        <h4>🔍 Analyzing Running Form</h4>
+                        <span class="progress-text" id="progressText">Initializing...</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-details" id="progressDetails">
+                        <span>Frames processed: <strong id="framesProcessed">0</strong></span>
+                        <span>Issues detected: <strong id="issuesDetected">0</strong></span>
+                        <span>Quality: <strong id="currentQuality">Analyzing...</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden Video Element -->
+            <video id="inputVideo" controls style="display: none;" aria-label="Uploaded video"></video>
+            
+            <!-- Analysis Controls -->
+            <div class="controls">
+                <button id="analyzeBtn" class="btn btn-primary" disabled aria-label="Start analysis">
+                    🔍 Analyze Running Form
+                </button>
+                <button id="resetBtn" class="btn btn-secondary" aria-label="Reset application">
+                    🔄 Reset
+                </button>
             </div>
 
             <!-- Feedback Section -->
