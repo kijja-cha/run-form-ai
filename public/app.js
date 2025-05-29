@@ -2,7 +2,6 @@
 console.log('🏃‍♂️ Starting RunForm.AI Phase 2...');
 
 // Global variables
-let pose;
 let camera;
 let mediaRecorder;
 let recordedChunks = [];
@@ -12,6 +11,9 @@ let currentVideo = null;
 let isAnalyzing = false;
 let kneeAngleChart = null;
 let torsoAngleChart = null;
+
+// Make pose a global window property
+window.pose = null;
 
 // Elite runner baseline data
 const BASELINE_DATA = {
@@ -187,30 +189,29 @@ async function initializePose() {
     console.log('🤖 Initializing MediaPipe Pose...');
     
     try {
-        pose = new Pose({
+        window.pose = new Pose({
             locateFile: (file) => {
                 return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
             }
         });
 
-        pose.setOptions({
+        window.pose.setOptions({
             modelComplexity: 2,
             smoothLandmarks: true,
             enableSegmentation: false,
             smoothSegmentation: false,
             minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            minTrackingConfidence: 0.5,
+            selfieMode: false
         });
 
-        pose.onResults(onPoseResults);
+        window.pose.onResults(onPoseResults);
         
         console.log('✅ MediaPipe Pose initialized successfully');
-        if (mediapipeLoading) mediapipeLoading.style.display = 'none';
-        updateStatusIndicator(true, 'Ready', 'complete');
-        
+        return window.pose;
     } catch (error) {
         console.error('❌ Failed to initialize MediaPipe Pose:', error);
-        updateStatusIndicator(true, 'Error', 'error');
+        throw error;
     }
 }
 

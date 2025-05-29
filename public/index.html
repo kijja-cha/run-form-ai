@@ -526,8 +526,41 @@ Performance Report:
             // Check global pose instance
             if (window.pose) {
                 log('✅ Global pose instance: Available', 'success');
+                
+                // Try to check if pose instance is properly configured
+                try {
+                    if (typeof window.pose.setOptions === 'function') {
+                        log('✅ Pose.setOptions: Function available', 'success');
+                    }
+                    if (typeof window.pose.send === 'function') {
+                        log('✅ Pose.send: Function available', 'success');
+                    }
+                    if (typeof window.pose.onResults === 'function') {
+                        log('✅ Pose.onResults: Function available', 'success');
+                    }
+                } catch (error) {
+                    log(`⚠️ Pose instance check error: ${error.message}`, 'warning');
+                }
             } else {
                 log('❌ Global pose instance: Not initialized', 'error');
+                log('💡 Trying to initialize pose now...', 'info');
+                
+                // Try to initialize pose
+                if (typeof Pose !== 'undefined') {
+                    try {
+                        window.initializePoseGlobal && window.initializePoseGlobal()
+                            .then(() => {
+                                log('✅ Pose initialized successfully!', 'success');
+                            })
+                            .catch(error => {
+                                log(`❌ Pose initialization failed: ${error.message}`, 'error');
+                            });
+                    } catch (error) {
+                        log(`❌ Error initializing pose: ${error.message}`, 'error');
+                    }
+                } else {
+                    log('❌ Cannot initialize: Pose class not available', 'error');
+                }
             }
             
             // Check lazy loader status
@@ -544,9 +577,20 @@ Performance Report:
                 }
             }
             
-            // Check for common issues
+            // Check current video
+            if (window.currentVideo) {
+                log(`📹 Video loaded: ${window.currentVideo.duration.toFixed(1)}s`, 'info');
+            } else {
+                log('📹 No video loaded', 'warning');
+            }
+            
+            // Check for common issues and provide solutions
             if (typeof Pose === 'undefined') {
-                log('💡 Solution: Try clicking "Force Reload" to reload MediaPipe', 'info');
+                log('💡 Solution: Try "Force Reload" to reload MediaPipe', 'info');
+            } else if (!window.pose) {
+                log('💡 Solution: Try "Clear Cache" then refresh page', 'info');
+            } else {
+                log('💡 MediaPipe should be ready for analysis', 'success');
             }
             
             log('🔍 MediaPipe status check complete', 'info');

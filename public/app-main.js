@@ -416,11 +416,21 @@ async function initializeApp() {
         console.log('📦 Force loading critical MediaPipe libraries...');
         await window.lazyLoader.loadOnDemand('analysis');
         console.log('✅ Critical libraries loaded successfully');
+        
+        // Verify libraries are actually available
+        if (typeof Pose === 'undefined') {
+            console.warn('⚠️ Pose not available after loading, trying fallback...');
+            await loadLibrariesFallback();
+        }
+        
     } catch (error) {
         console.warn('⚠️ Failed to load libraries via lazy loader, using fallback', error);
         // Fallback: Load libraries the old way
         await loadLibrariesFallback();
     }
+    
+    // Wait a bit for libraries to be fully available
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Initialize Web Workers if supported and beneficial (but not required)
     if (optimizationSettings?.enableWorkers) {
@@ -440,10 +450,12 @@ async function initializeApp() {
     
     // Always initialize MediaPipe Pose on main thread as backup
     try {
-        await initializePose();
+        console.log('🔧 Initializing MediaPipe Pose...');
+        await initializePoseGlobal();
         console.log('✅ MediaPipe Pose initialized on main thread');
     } catch (error) {
         console.error('❌ Failed to initialize MediaPipe Pose:', error);
+        console.log('💡 Will retry initialization when analysis starts');
     }
     
     // Show initial section
@@ -452,6 +464,51 @@ async function initializeApp() {
     lightTracker.end('app-init');
     console.log('✅ RunForm.AI Phase 2 with Performance Optimization initialized successfully!');
 }
+
+// New function to properly initialize pose globally
+async function initializePoseGlobal() {
+    // Check if libraries are available
+    if (typeof Pose === 'undefined') {
+        console.log('📦 Pose not available, loading libraries...');
+        await loadLibrariesFallback();
+        
+        // Wait a bit more for libraries to load
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        if (typeof Pose === 'undefined') {
+            throw new Error('MediaPipe Pose library not available');
+        }
+    }
+    
+    console.log('🔧 Creating Pose instance...');
+    
+    // Create pose instance with proper configuration
+    window.pose = new Pose({
+        locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+        }
+    });
+
+    // Configure pose options
+    window.pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+        selfieMode: false
+    });
+
+    // Set up pose results handler
+    window.pose.onResults(onPoseResults);
+    
+    console.log('✅ Global pose instance created and configured');
+    return window.pose;
+}
+
+// Make function globally available for debug
+window.initializePoseGlobal = initializePoseGlobal;
 
 // Fallback library loading function
 async function loadLibrariesFallback() {
@@ -534,15 +591,17 @@ async function analyzeVideoOptimized() {
         // Always use main thread for now (more stable)
         console.log('⚙️ Using main thread analysis for stability');
         
-        // Ensure pose is initialized
-        if (!pose) {
-            console.log('🔧 Reinitializing MediaPipe Pose...');
-            await initializePose();
+        // Ensure pose is initialized and available
+        if (!window.pose) {
+            console.log('🔧 Global pose not found, reinitializing...');
+            await initializePoseGlobal();
         }
         
-        if (!pose) {
-            throw new Error('MediaPipe Pose not available');
+        if (!window.pose) {
+            throw new Error('MediaPipe Pose not available after initialization');
         }
+        
+        console.log('✅ Pose instance confirmed, starting analysis...');
         
         // Process frames on main thread
         for (let i = 0; i < totalFramesToProcess; i++) {
@@ -554,7 +613,7 @@ async function analyzeVideoOptimized() {
             });
 
             // Process frame with MediaPipe
-            await pose.send({ image: video });
+            await window.pose.send({ image: video });
 
             // Update progress
             const progress = ((i + 1) / totalFramesToProcess) * 100;
@@ -571,6 +630,11 @@ async function analyzeVideoOptimized() {
 
             // Add small delay to prevent overwhelming
             await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        // Verify we have analysis data
+        if (analysisData.length === 0) {
+            throw new Error('No analysis data generated - pose detection may have failed');
         }
 
         // Generate comprehensive results
@@ -592,12 +656,12 @@ async function analyzeVideoOptimized() {
         
         // Enhanced error reporting
         let errorMessage = 'Analysis failed. ';
-        if (error.message.includes('MediaPipe')) {
-            errorMessage += 'MediaPipe libraries not loaded properly. ';
-        } else if (error.message.includes('pose')) {
-            errorMessage += 'Pose detection initialization failed. ';
+        if (error.message.includes('MediaPipe') || error.message.includes('Pose')) {
+            errorMessage += 'MediaPipe Pose detection failed. ';
+        } else if (error.message.includes('analysis data')) {
+            errorMessage += 'No pose data detected in video. ';
         }
-        errorMessage += 'Please refresh the page and try again.';
+        errorMessage += 'Please try:\n1. Refresh the page\n2. Use Clear Cache in debug panel\n3. Ensure person is visible in video';
         
         updateProgressOverlay(false);
         updateStatusIndicator(true, 'Analysis Failed', 'error');
