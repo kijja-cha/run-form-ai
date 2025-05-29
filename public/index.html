@@ -13,22 +13,64 @@
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏃‍♂️</text></svg>">
     
+    <!-- Preload critical resources -->
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="preload" href="utils/lazy-loader.js" as="script">
+    <link rel="preload" href="utils/performance-monitor.js" as="script">
+    
+    <!-- DNS prefetch for external libraries -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    
     <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
     
-    <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
-    <!-- MediaPipe Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <!-- Performance & Lazy Loading Scripts (Load Early) -->
+    <script src="utils/performance-monitor.js"></script>
+    <script src="utils/lazy-loader.js"></script>
     
     <!-- Demo Configuration -->
     <script src="demo-config.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        // Register Service Worker for caching
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+                        
+                        // Listen for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New content available, show update notification
+                                    showUpdateNotification();
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.log('❌ Service Worker registration failed:', error);
+                    });
+            });
+        }
+        
+        function showUpdateNotification() {
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="position: fixed; top: 20px; right: 20px; background: rgba(102, 126, 234, 0.95); color: white; padding: 16px 20px; border-radius: 12px; font-size: 14px; z-index: 1002; max-width: 300px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">
+                    🆕 App update available!
+                    <br><small>Refresh to get the latest features</small>
+                    <button onclick="window.location.reload()" style="background: white; color: #667eea; border: none; padding: 6px 12px; border-radius: 6px; margin: 8px 8px 0 0; cursor: pointer; font-weight: 600;">Refresh</button>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: white; padding: 6px; cursor: pointer;">×</button>
+                </div>
+            `;
+            document.body.appendChild(notification);
+        }
+    </script>
 </head>
 <body>
     <div class="app-container">
@@ -44,6 +86,18 @@
                     <span class="tip-icon">💡</span>
                     <p id="rotatingTip">Record from the side view for best results</p>
                 </div>
+                
+                <!-- Performance Status Indicator -->
+                <div id="performanceStatus" class="performance-status" style="display: none;">
+                    <div class="status-item">
+                        <span class="status-label">Libraries:</span>
+                        <span id="libraryStatus" class="status-value">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Memory:</span>
+                        <span id="memoryStatus" class="status-value">--</span>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -58,12 +112,12 @@
                         <h2>Choose Input Method</h2>
                     </div>
                     <div class="input-options">
-                        <button id="webcamBtn" class="option-card webcam-option" aria-label="Start camera recording">
+                        <button id="webcamBtn" class="option-card webcam-option" aria-label="Start camera recording" onclick="trackFeatureUsage('webcam')">
                             <div class="option-icon">📹</div>
                             <h3>Record with Camera</h3>
                             <p>Use your device camera to record running form</p>
                         </button>
-                        <button id="uploadBtn" class="option-card upload-option" aria-label="Upload video file">
+                        <button id="uploadBtn" class="option-card upload-option" aria-label="Upload video file" onclick="trackFeatureUsage('upload')">
                             <div class="option-icon">📁</div>
                             <h3>Upload Video</h3>
                             <p>Analyze existing video files (MP4, MOV, WebM)</p>
@@ -144,7 +198,7 @@
 
                         <!-- Analysis Controls -->
                         <div class="analysis-controls">
-                            <button id="analyzeBtn" class="action-button primary" disabled>
+                            <button id="analyzeBtn" class="action-button primary" disabled onclick="trackFeatureUsage('analysis')">
                                 <span class="btn-icon">🔍</span>
                                 <span class="btn-text">
                                     <strong>Analyze Running Form</strong>
@@ -219,21 +273,21 @@
                         
                         <!-- Export & Share Controls -->
                         <div class="export-controls">
-                            <button id="exportPdfBtn" class="action-button success">
+                            <button id="exportPdfBtn" class="action-button success" onclick="trackFeatureUsage('export')">
                                 <span class="btn-icon">📄</span>
                                 <span class="btn-text">
                                     <strong>Export PDF Report</strong>
                                     <small>Download comprehensive analysis</small>
                                 </span>
                             </button>
-                            <button id="exportImageBtn" class="action-button secondary">
+                            <button id="exportImageBtn" class="action-button secondary" onclick="trackFeatureUsage('export')">
                                 <span class="btn-icon">🖼️</span>
                                 <span class="btn-text">
                                     <strong>Export as Image</strong>
                                     <small>Save visual summary</small>
                                 </span>
                             </button>
-                            <button id="shareBtn" class="action-button secondary">
+                            <button id="shareBtn" class="action-button secondary" onclick="trackFeatureUsage('share')">
                                 <span class="btn-icon">📤</span>
                                 <span class="btn-text">
                                     <strong>Share Analysis</strong>
@@ -295,7 +349,7 @@
             <div class="loading-content">
                 <div class="loading-spinner"></div>
                 <h3>🏃‍♂️ Initializing RunForm.AI</h3>
-                <p>Loading AI coaching models and pose detection systems...</p>
+                <p>Loading AI coaching models and performance optimizations...</p>
             </div>
         </div>
 
@@ -308,15 +362,93 @@
                 </div>
                 <div class="footer-links">
                     <span>Built with ❤️ using MediaPipe & Chart.js</span>
+                    <a href="#" onclick="showPerformanceReport()">Performance Report</a>
                     <a href="https://github.com/runform-ai" target="_blank" rel="noopener">GitHub</a>
                 </div>
             </div>
         </footer>
     </div>
 
-    <!-- Main Application Script -->
+    <!-- Feature Usage Tracking -->
+    <script>
+        function trackFeatureUsage(feature) {
+            // Track feature usage for smart loading
+            const event = new CustomEvent('feature-used', {
+                detail: { feature }
+            });
+            document.dispatchEvent(event);
+        }
+        
+        function showPerformanceReport() {
+            if (window.performanceMonitor) {
+                const report = performanceMonitor.getPerformanceReport();
+                console.log('🎯 Performance Report:', report);
+                
+                // Show user-friendly performance info
+                const info = `
+Performance Report:
+• Memory Usage: ${(report.memory.current / 1024 / 1024).toFixed(1)} MB
+• Average FPS: ${report.fps.current.toFixed(1)}
+• Total Load Time: ${(report.totalLoadTime / 1000).toFixed(1)}s
+• Libraries Loaded: ${Object.keys(report.loadTimes).length}
+• Network Requests: ${report.networkRequests}
+• Errors: ${report.errors}
+                `;
+                alert(info.trim());
+            }
+        }
+        
+        // Performance status updates
+        if (window.lazyLoader) {
+            document.addEventListener('library-loaded', () => {
+                const status = lazyLoader.getStatus();
+                const statusEl = document.getElementById('libraryStatus');
+                if (statusEl) {
+                    statusEl.textContent = `${status.loaded}/${status.total}`;
+                }
+            });
+        }
+        
+        // Memory status updates
+        if (window.performanceMonitor) {
+            setInterval(() => {
+                const memory = performanceMonitor.getCurrentMemoryUsage();
+                const statusEl = document.getElementById('memoryStatus');
+                if (statusEl && memory > 0) {
+                    statusEl.textContent = `${(memory / 1024 / 1024).toFixed(1)} MB`;
+                }
+            }, 5000);
+        }
+    </script>
+
+    <!-- Lazy-loaded External Libraries (will be loaded on demand) -->
+    <!-- Chart.js, jsPDF, html2canvas will be loaded by lazy-loader when needed -->
+    
+    <!-- MediaPipe Dependencies (will be loaded by lazy-loader when needed) -->
+    <!-- MediaPipe scripts will be loaded on demand for better performance -->
+
+    <!-- Main Application Scripts -->
     <script src="app.js"></script>
     <script src="phase2-features.js"></script>
     <script src="app-main.js"></script>
+    
+    <!-- Initialize Performance Optimization -->
+    <script>
+        // Start performance optimization immediately
+        if (window.lazyLoader) {
+            // Preload critical libraries based on user behavior
+            lazyLoader.preloadLibraries();
+        }
+        
+        // Hide loading overlay once core scripts are loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const loader = document.getElementById('mediapipeLoading');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+            }, 1000);
+        });
+    </script>
 </body>
 </html> 

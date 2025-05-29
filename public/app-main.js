@@ -1,5 +1,10 @@
-// Main App Logic and Event Listeners
-console.log('🚀 Starting RunForm.AI Main Application...');
+// Main App Logic and Event Listeners - Performance Optimized
+console.log('🚀 Starting RunForm.AI Main Application with Performance Optimizations...');
+
+// Global variables for performance optimization
+let poseWorker = null;
+let isUsingWorkers = false;
+let optimizationSettings = null;
 
 // Event Listeners Setup
 function setupEventListeners() {
@@ -31,31 +36,215 @@ function setupEventListeners() {
 
     // Analysis controls
     if (analyzeBtn) {
-        analyzeBtn.addEventListener('click', analyzeVideo);
+        analyzeBtn.addEventListener('click', analyzeVideoOptimized);
     }
 
     if (resetBtn) {
         resetBtn.addEventListener('click', resetApp);
     }
 
-    // Export controls
+    // Export controls with lazy loading
     if (exportPdfBtn) {
-        exportPdfBtn.addEventListener('click', exportToPDF);
+        exportPdfBtn.addEventListener('click', exportToPDFOptimized);
     }
 
     if (exportImageBtn) {
-        exportImageBtn.addEventListener('click', exportToImage);
+        exportImageBtn.addEventListener('click', exportToImageOptimized);
     }
 
     if (shareBtn) {
         shareBtn.addEventListener('click', generateShareLink);
     }
+
+    // Performance monitoring events
+    setupPerformanceEventListeners();
 }
 
-// Webcam functionality
+// Setup performance event listeners
+function setupPerformanceEventListeners() {
+    // Listen for performance issues
+    document.addEventListener('performance-issue', (event) => {
+        const { type, data } = event.detail;
+        console.warn(`⚠️ Performance issue detected: ${type}`, data);
+        
+        // Auto-optimize based on performance issues
+        handlePerformanceIssue(type, data);
+    });
+
+    // Listen for library loading events
+    document.addEventListener('library-loaded', (event) => {
+        const { library, loadTime } = event.detail;
+        console.log(`📦 Library ${library} loaded in ${loadTime.toFixed(2)}ms`);
+        
+        // Enable features as libraries become available
+        enableFeatureWhenReady(library);
+    });
+}
+
+// Handle performance issues automatically
+function handlePerformanceIssue(type, data) {
+    switch (type) {
+        case 'memory-threshold-exceeded':
+            console.log('🔧 Auto-optimization: Reducing memory usage');
+            // Reduce processing quality
+            if (window.DEMO_CONFIG) {
+                window.DEMO_CONFIG.FRAME_INTERVAL = Math.min(0.2, window.DEMO_CONFIG.FRAME_INTERVAL * 2);
+            }
+            break;
+            
+        case 'low-fps':
+            console.log('🔧 Auto-optimization: Reducing animations');
+            // Disable non-essential animations
+            document.body.style.setProperty('--transition', 'none');
+            break;
+            
+        case 'slow-load':
+            console.log('🔧 Auto-optimization: Prioritizing critical features');
+            // Focus on critical features only
+            break;
+    }
+}
+
+// Enable features when libraries are ready
+function enableFeatureWhenReady(library) {
+    switch (library) {
+        case 'mediapipe_pose':
+            // Enable analysis when MediaPipe is ready
+            if (analyzeBtn && currentVideo) {
+                analyzeBtn.disabled = false;
+            }
+            break;
+            
+        case 'chartjs':
+            // Charts can now be generated
+            console.log('📊 Chart.js ready for interactive charts');
+            break;
+            
+        case 'jspdf':
+        case 'html2canvas':
+            // Export features are ready
+            console.log('📄 Export features ready');
+            break;
+    }
+}
+
+// Initialize Web Workers
+async function initializeWebWorkers() {
+    if (!window.Worker) {
+        console.warn('⚠️ Web Workers not supported - using main thread');
+        return false;
+    }
+
+    try {
+        // Check if we should use workers based on device capabilities
+        const optimization = window.performanceMonitor?.autoOptimize();
+        if (!optimization?.enableWorkers) {
+            console.log('💡 Device capabilities suggest main thread processing');
+            return false;
+        }
+
+        poseWorker = new Worker('/workers/pose-analysis-worker.js');
+        
+        poseWorker.onmessage = function(e) {
+            const { type, data, frameIndex } = e.data;
+            
+            switch (type) {
+                case 'POSE_INITIALIZED':
+                    console.log('✅ Pose worker initialized');
+                    isUsingWorkers = true;
+                    break;
+                    
+                case 'FRAME_RESULT':
+                    handleWorkerFrameResult(data, frameIndex);
+                    break;
+                    
+                case 'BATCH_PROGRESS':
+                    updateProgressFromWorker(data);
+                    break;
+                    
+                case 'ERROR':
+                    console.error('❌ Worker error:', data.error);
+                    fallbackToMainThread();
+                    break;
+            }
+        };
+
+        poseWorker.onerror = function(error) {
+            console.error('❌ Worker failed:', error);
+            fallbackToMainThread();
+        };
+
+        // Initialize pose in worker
+        poseWorker.postMessage({
+            type: 'INIT_POSE',
+            data: {
+                config: window.DEMO_CONFIG?.MEDIAPIPE_CONFIG
+            }
+        });
+
+        console.log('🔧 Web Worker initialized for pose analysis');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Failed to initialize workers:', error);
+        return false;
+    }
+}
+
+// Handle worker frame results
+function handleWorkerFrameResult(data, frameIndex) {
+    if (data && data.analysis) {
+        // Update analysis data from worker
+        analysisData[frameIndex] = data.analysis;
+        
+        // Update progress
+        const progress = ((frameIndex + 1) / totalFramesToProcess) * 100;
+        updateProgressOverlay(
+            true,
+            `Processing frame ${frameIndex + 1}...`,
+            progress,
+            frameIndex + 1,
+            analysisData.filter(f => f && f.issues.length > 0).length,
+            'High Quality'
+        );
+        
+        // Draw pose if we have landmarks
+        if (data.landmarks) {
+            drawEnhancedPoseLandmarks(data.landmarks);
+        }
+    }
+}
+
+// Update progress from worker
+function updateProgressFromWorker(data) {
+    updateProgressOverlay(
+        true,
+        `Processing batch: ${data.current}/${data.total}`,
+        data.percentage,
+        data.current,
+        analysisData.filter(f => f && f.issues.length > 0).length,
+        'Processing...'
+    );
+}
+
+// Fallback to main thread processing
+function fallbackToMainThread() {
+    console.log('🔄 Falling back to main thread processing');
+    isUsingWorkers = false;
+    if (poseWorker) {
+        poseWorker.terminate();
+        poseWorker = null;
+    }
+}
+
+// Webcam functionality with lazy loading
 async function startWebcam() {
     try {
         console.log('📹 Starting webcam...');
+        lightTracker.start('webcam-setup');
+        
+        // Load camera libraries on demand
+        await window.lazyLoader.loadOnDemand('webcam');
         
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -73,8 +262,8 @@ async function startWebcam() {
         if (cameraSection) cameraSection.style.display = 'block';
         showSection(step2);
 
-        // Initialize camera for MediaPipe
-        if (pose) {
+        // Initialize camera for MediaPipe (if using main thread)
+        if (!isUsingWorkers && pose && typeof Camera !== 'undefined') {
             camera = new Camera(webcamElement, {
                 onFrame: async () => {
                     if (pose && webcamElement.readyState === 4) {
@@ -88,9 +277,11 @@ async function startWebcam() {
         }
 
         updateStatusIndicator(true, 'Camera Active', 'processing');
+        lightTracker.end('webcam-setup');
 
     } catch (error) {
         console.error('❌ Webcam access failed:', error);
+        lightTracker.end('webcam-setup');
         alert('Could not access camera. Please check permissions and try again.');
     }
 }
@@ -101,6 +292,14 @@ function handleVideoUpload(event) {
     if (!file) return;
 
     console.log('📁 Processing uploaded video...');
+    lightTracker.start('video-upload');
+
+    // Check file size and optimize if needed
+    const maxSize = window.DEMO_CONFIG?.MAX_VIDEO_SIZE || 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+        console.warn(`⚠️ Large video file: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+        // Could implement video compression here
+    }
 
     if (inputVideoElement) {
         const url = URL.createObjectURL(file);
@@ -112,14 +311,18 @@ function handleVideoUpload(event) {
             updateVideoInfo(inputVideoElement);
             
             if (videoPreviewSection) videoPreviewSection.style.display = 'block';
-            if (analyzeBtn) analyzeBtn.disabled = false;
+            if (analyzeBtn && window.lazyLoader.isFeatureReady('analysis')) {
+                analyzeBtn.disabled = false;
+            }
             
             showSection(step2);
             updateStatusIndicator(true, 'Video Loaded', 'complete');
+            lightTracker.end('video-upload');
         });
 
         inputVideoElement.addEventListener('error', () => {
             alert('Error loading video. Please try a different file.');
+            lightTracker.end('video-upload');
         });
     }
 }
@@ -129,6 +332,7 @@ function startRecording() {
     if (!webcamElement || !webcamElement.srcObject) return;
 
     try {
+        lightTracker.start('recording');
         recordedChunks = [];
         const stream = webcamElement.srcObject;
         
@@ -155,9 +359,12 @@ function startRecording() {
                     updateVideoInfo(inputVideoElement);
                     
                     if (videoPreviewSection) videoPreviewSection.style.display = 'block';
-                    if (analyzeBtn) analyzeBtn.disabled = false;
+                    if (analyzeBtn && window.lazyLoader.isFeatureReady('analysis')) {
+                        analyzeBtn.disabled = false;
+                    }
                     
                     updateStatusIndicator(true, 'Recording Complete', 'complete');
+                    lightTracker.end('recording');
                 });
             }
         });
@@ -175,6 +382,7 @@ function startRecording() {
 
     } catch (error) {
         console.error('❌ Recording failed:', error);
+        lightTracker.end('recording');
         alert('Recording failed. Please try again.');
     }
 }
@@ -192,14 +400,24 @@ function stopRecording() {
     }
 }
 
-// Main analysis function
-async function analyzeVideo() {
-    if (!currentVideo || !pose) {
+// Optimized analysis function
+async function analyzeVideoOptimized() {
+    if (!currentVideo) {
         alert('Please load a video first.');
         return;
     }
 
-    console.log('🔍 Starting enhanced analysis...');
+    // Check if required libraries are loaded
+    if (!window.lazyLoader.isFeatureReady('analysis')) {
+        console.log('📦 Loading analysis libraries...');
+        await window.lazyLoader.loadOnDemand('analysis');
+    }
+
+    console.log('🔍 Starting enhanced analysis with performance optimization...');
+    lightTracker.start('analysis');
+    
+    // Dispatch analysis started event for performance monitoring
+    document.dispatchEvent(new CustomEvent('analysis-started'));
     
     isAnalyzing = true;
     analysisData = [];
@@ -215,55 +433,38 @@ async function analyzeVideo() {
 
     const video = currentVideo;
     const duration = video.duration;
-    const frameRate = 10; // Process 10 frames per second
-    const totalFrames = Math.floor(duration * frameRate);
+    
+    // Adaptive frame rate based on device performance
+    const baseFrameRate = window.DEMO_CONFIG?.PERFORMANCE?.TARGET_FPS || 10;
+    const frameRate = optimizationSettings?.reduceQuality ? Math.max(5, baseFrameRate / 2) : baseFrameRate;
+    
+    totalFramesToProcess = Math.floor(duration * frameRate);
 
     // Set up canvas for processing
     outputCanvas.width = video.videoWidth || 640;
     outputCanvas.height = video.videoHeight || 480;
 
     try {
-        for (let i = 0; i < totalFrames; i++) {
-            const currentTime = (i / frameRate);
-            video.currentTime = currentTime;
-
-            await new Promise((resolve) => {
-                video.addEventListener('seeked', resolve, { once: true });
-            });
-
-            // Process frame with MediaPipe
-            await pose.send({ image: video });
-
-            // Update progress
-            const progress = ((i + 1) / totalFrames) * 100;
-            const currentInsights = analysisData.reduce((sum, frame) => sum + frame.issues.length, 0);
-            
-            updateProgressOverlay(
-                true,
-                `Analyzing frame ${i + 1} of ${totalFrames}...`,
-                progress,
-                i + 1,
-                currentInsights,
-                progress > 50 ? 'High Quality' : 'Building...'
-            );
-
-            // Add small delay to prevent overwhelming
-            await new Promise(resolve => setTimeout(resolve, 50));
+        if (isUsingWorkers && poseWorker) {
+            // Use Web Worker for analysis
+            await analyzeWithWorker(video, duration, frameRate);
+        } else {
+            // Fallback to main thread
+            await analyzeWithMainThread(video, duration, frameRate);
         }
 
         // Generate comprehensive results
         console.log('📊 Generating comprehensive analysis...');
-        
-        updateProgressOverlay(true, 'Generating insights and recommendations...', 100, totalFrames, 
-                            analysisData.reduce((sum, frame) => sum + frame.issues.length, 0), 'Complete');
-
-        // Generate all Phase 2 features
         await generateAllResults();
+
+        // Dispatch analysis completed event
+        document.dispatchEvent(new CustomEvent('analysis-completed'));
 
         // Hide progress and show results
         setTimeout(() => {
             updateProgressOverlay(false);
             updateStatusIndicator(true, 'Analysis Complete', 'complete');
+            lightTracker.end('analysis');
         }, 1000);
 
     } catch (error) {
@@ -271,18 +472,137 @@ async function analyzeVideo() {
         updateProgressOverlay(false);
         updateStatusIndicator(true, 'Analysis Failed', 'error');
         alert('Analysis failed. Please try again.');
+        lightTracker.end('analysis');
     } finally {
         isAnalyzing = false;
     }
 }
 
-// Generate all Phase 2 results
+// Analyze with Web Worker
+async function analyzeWithWorker(video, duration, frameRate) {
+    console.log('🔧 Using Web Worker for analysis');
+    
+    // Extract frames and send to worker
+    const frames = [];
+    for (let i = 0; i < totalFramesToProcess; i++) {
+        const currentTime = (i / frameRate);
+        video.currentTime = currentTime;
+        
+        await new Promise((resolve) => {
+            video.addEventListener('seeked', resolve, { once: true });
+        });
+        
+        // Extract frame data
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        frames.push({ imageData, frameIndex: i });
+    }
+    
+    // Send batch to worker
+    poseWorker.postMessage({
+        type: 'PROCESS_BATCH',
+        data: { frames }
+    });
+    
+    // Wait for completion
+    return new Promise((resolve) => {
+        const handler = (e) => {
+            if (e.data.type === 'BATCH_COMPLETE') {
+                poseWorker.removeEventListener('message', handler);
+                resolve();
+            }
+        };
+        poseWorker.addEventListener('message', handler);
+    });
+}
+
+let totalFramesToProcess = 0;
+
+// Analyze with main thread (fallback)
+async function analyzeWithMainThread(video, duration, frameRate) {
+    console.log('⚙️ Using main thread for analysis');
+    
+    // Ensure pose is initialized
+    if (!pose) {
+        await initializePose();
+    }
+    
+    for (let i = 0; i < totalFramesToProcess; i++) {
+        const currentTime = (i / frameRate);
+        video.currentTime = currentTime;
+
+        await new Promise((resolve) => {
+            video.addEventListener('seeked', resolve, { once: true });
+        });
+
+        // Process frame with MediaPipe
+        await pose.send({ image: video });
+
+        // Update progress
+        const progress = ((i + 1) / totalFramesToProcess) * 100;
+        const currentInsights = analysisData.reduce((sum, frame) => sum + (frame?.issues?.length || 0), 0);
+        
+        updateProgressOverlay(
+            true,
+            `Analyzing frame ${i + 1} of ${totalFramesToProcess}...`,
+            progress,
+            i + 1,
+            currentInsights,
+            progress > 50 ? 'High Quality' : 'Building...'
+        );
+
+        // Add small delay to prevent overwhelming
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+}
+
+// Optimized PDF export with lazy loading
+async function exportToPDFOptimized() {
+    // Load export libraries on demand
+    if (!window.lazyLoader.isFeatureReady('export')) {
+        console.log('📦 Loading export libraries...');
+        await window.lazyLoader.loadOnDemand('export');
+    }
+    
+    lightTracker.start('pdf-export');
+    await exportToPDF();
+    lightTracker.end('pdf-export');
+}
+
+// Optimized image export with lazy loading
+async function exportToImageOptimized() {
+    // Load export libraries on demand
+    if (!window.lazyLoader.isFeatureReady('export')) {
+        console.log('📦 Loading export libraries...');
+        await window.lazyLoader.loadOnDemand('export');
+    }
+    
+    lightTracker.start('image-export');
+    await exportToImage();
+    lightTracker.end('image-export');
+}
+
+// Generate all Phase 2 results with performance optimization
 async function generateAllResults() {
+    lightTracker.start('results-generation');
+    
+    // Load charts library if needed
+    if (!window.lazyLoader.isFeatureReady('charts')) {
+        await window.lazyLoader.loadOnDemand('charts');
+    }
+    
     // 1. Generate basic metrics overview
     generateMetricsOverview();
     
-    // 2. Create interactive charts
-    createInteractiveCharts();
+    // 2. Create interactive charts (if Chart.js is loaded)
+    if (typeof Chart !== 'undefined') {
+        createInteractiveCharts();
+    }
     
     // 3. Generate frame snapshots
     generateFrameSnapshots();
@@ -295,122 +615,23 @@ async function generateAllResults() {
     
     // 6. Generate traditional feedback
     generateDetailedFeedback();
-}
-
-function generateMetricsOverview() {
-    if (!analysisData || analysisData.length === 0) return;
-
-    const totalFrames = analysisData.length;
-    const totalIssues = analysisData.reduce((sum, frame) => sum + frame.issues.length, 0);
-    const goodQualityFrames = analysisData.filter(frame => frame.quality === 'excellent' || frame.quality === 'good').length;
-    const avgKneeAngle = analysisData.reduce((sum, frame) => sum + Math.max(frame.angles?.leftKnee || 0, frame.angles?.rightKnee || 0), 0) / totalFrames;
-    const avgTorsoLean = analysisData.reduce((sum, frame) => sum + (frame.angles?.torsoLean || 0), 0) / totalFrames;
-
-    if (metricsOverview) {
-        metricsOverview.innerHTML = `
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-value">${totalFrames}</div>
-                    <div class="metric-label">Frames Analyzed</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">${totalIssues}</div>
-                    <div class="metric-label">Insights Generated</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">${((goodQualityFrames / totalFrames) * 100).toFixed(0)}%</div>
-                    <div class="metric-label">Data Quality</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">${avgKneeAngle.toFixed(0)}°</div>
-                    <div class="metric-label">Avg Knee Angle</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">${avgTorsoLean.toFixed(1)}°</div>
-                    <div class="metric-label">Avg Torso Lean</div>
-                </div>
-            </div>
-        `;
-    }
-}
-
-function generateDetailedFeedback() {
-    // This function generates the traditional feedback cards for backward compatibility
-    if (!analysisData || analysisData.length === 0) {
-        document.getElementById('feedbackContent').innerHTML = '<p>No analysis data available.</p>';
-        return;
-    }
-
-    const totalFrames = analysisData.length;
-    const issueTypes = {};
     
-    analysisData.forEach(frame => {
-        frame.issues.forEach(issue => {
-            if (!issueTypes[issue.type]) issueTypes[issue.type] = [];
-            issueTypes[issue.type].push(issue);
-        });
-    });
-
-    const feedbackItems = [];
-
-    // Overall summary
-    const totalIssues = Object.values(issueTypes).reduce((sum, issues) => sum + issues.length, 0);
-    feedbackItems.push({
-        type: totalIssues === 0 ? 'good' : totalIssues < 10 ? 'info' : 'warning',
-        title: '📊 Analysis Summary',
-        content: `Analyzed ${totalFrames} frames and detected ${totalIssues} areas for improvement. ${totalIssues === 0 ? 'Excellent form consistency!' : 'Focus on the recommendations below for optimization.'}`
-    });
-
-    // Issue-specific feedback
-    Object.entries(issueTypes).forEach(([type, issues]) => {
-        const percentage = (issues.length / totalFrames) * 100;
-        let title, content, feedbackType;
-
-        switch (type) {
-            case 'low_knee_drive':
-                title = '🦵 Knee Drive Analysis';
-                content = `Low knee drive detected in ${issues.length} frames (${percentage.toFixed(1)}%). Focus on high knees drills and maintaining proper knee lift throughout your stride.`;
-                feedbackType = percentage > 20 ? 'warning' : 'info';
-                break;
-            case 'excessive_forward_lean':
-                title = '🏃‍♂️ Posture Analysis';
-                content = `Forward lean issues in ${issues.length} frames (${percentage.toFixed(1)}%). Work on running tall with upright posture to improve efficiency and reduce back strain.`;
-                feedbackType = percentage > 30 ? 'error' : 'warning';
-                break;
-            case 'overstriding':
-                title = '👟 Stride Analysis';
-                content = `Overstriding detected in ${issues.length} frames (${percentage.toFixed(1)}%). Focus on quicker cadence and landing with feet closer to your center of gravity.`;
-                feedbackType = percentage > 25 ? 'warning' : 'info';
-                break;
-            default:
-                title = '⚡ Form Analysis';
-                content = `${type} detected in ${issues.length} frames (${percentage.toFixed(1)}%).`;
-                feedbackType = 'info';
-        }
-
-        feedbackItems.push({ type: feedbackType, title, content });
-    });
-
-    // Render feedback
-    const feedbackHTML = feedbackItems.map(item => `
-        <div class="feedback-item ${item.type}">
-            <h4>${item.title}</h4>
-            <p>${item.content}</p>
-        </div>
-    `).join('');
-
-    if (document.getElementById('feedbackContent')) {
-        document.getElementById('feedbackContent').innerHTML = feedbackHTML;
-    }
+    lightTracker.end('results-generation');
 }
 
-// Reset application
+// Reset application with cleanup
 function resetApp() {
     console.log('🔄 Resetting application...');
+    lightTracker.start('reset');
     
     // Stop camera and recording
     if (camera) camera.stop();
     if (mediaRecorder && isRecording) stopRecording();
+    
+    // Clean up Web Worker
+    if (poseWorker && isUsingWorkers) {
+        poseWorker.postMessage({ type: 'CLEANUP' });
+    }
     
     // Reset video elements
     if (webcamElement && webcamElement.srcObject) {
@@ -456,22 +677,45 @@ function resetApp() {
     showSection(step1);
     
     if (analyzeBtn) analyzeBtn.disabled = true;
+    
+    // Performance cleanup
+    if (window.performanceMonitor) {
+        // Reset memory warning flag
+        window.performanceMonitor.memoryWarningShown = false;
+    }
+    
+    lightTracker.end('reset');
 }
 
-// Initialize application
+// Initialize application with performance optimization
 async function initializeApp() {
-    console.log('🏃‍♂️ Initializing RunForm.AI Phase 2...');
+    console.log('🏃‍♂️ Initializing RunForm.AI Phase 2 with Performance Optimization...');
+    lightTracker.start('app-init');
+    
+    // Get auto-optimization settings
+    if (window.performanceMonitor) {
+        optimizationSettings = window.performanceMonitor.autoOptimize();
+        console.log('🎯 Auto-optimization settings:', optimizationSettings);
+    }
+    
+    // Initialize Web Workers if supported and beneficial
+    if (optimizationSettings?.enableWorkers) {
+        await initializeWebWorkers();
+    }
     
     // Setup event listeners
     setupEventListeners();
     
-    // Initialize MediaPipe Pose
-    await initializePose();
+    // Initialize MediaPipe Pose (if not using workers)
+    if (!isUsingWorkers) {
+        await initializePose();
+    }
     
     // Show initial section
     showSection(step1);
     
-    console.log('✅ RunForm.AI Phase 2 initialized successfully!');
+    lightTracker.end('app-init');
+    console.log('✅ RunForm.AI Phase 2 with Performance Optimization initialized successfully!');
 }
 
 // Start the application when DOM is loaded
@@ -481,4 +725,4 @@ if (document.readyState === 'loading') {
     initializeApp();
 }
 
-console.log('🎉 RunForm.AI Phase 2 - AI Personal Running Form Coach loaded!'); 
+console.log('🎉 RunForm.AI Phase 2 - AI Personal Running Form Coach with Performance Optimization loaded!'); 
