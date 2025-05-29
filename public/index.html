@@ -98,6 +98,21 @@
                         <span id="memoryStatus" class="status-value">--</span>
                     </div>
                 </div>
+                
+                <!-- Debug Panel for Troubleshooting -->
+                <div id="debugPanel" class="debug-panel" style="display: none;">
+                    <h5>🔧 Debug Tools</h5>
+                    <div class="debug-controls">
+                        <button onclick="clearAllCaches()" class="debug-btn">Clear Cache</button>
+                        <button onclick="checkMediaPipeStatus()" class="debug-btn">Check MediaPipe</button>
+                        <button onclick="forceReload()" class="debug-btn">Force Reload</button>
+                        <button onclick="toggleDebugPanel()" class="debug-btn close">×</button>
+                    </div>
+                    <div id="debugOutput" class="debug-output"></div>
+                </div>
+                
+                <!-- Debug Trigger -->
+                <div class="debug-trigger" onclick="toggleDebugPanel()" title="Debug Tools">🛠️</div>
             </div>
         </header>
 
@@ -419,6 +434,140 @@ Performance Report:
                 }
             }, 5000);
         }
+        
+        // Debug functions for troubleshooting
+        window.toggleDebugPanel = function() {
+            const panel = document.getElementById('debugPanel');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        };
+        
+        window.clearAllCaches = async function() {
+            const output = document.getElementById('debugOutput');
+            const log = (msg, type = 'info') => {
+                if (output) {
+                    output.innerHTML += `<div class="${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                }
+            };
+            
+            try {
+                log('🧹 Clearing all caches...', 'info');
+                
+                // Clear Service Worker caches
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    const messageChannel = new MessageChannel();
+                    messageChannel.port1.onmessage = (event) => {
+                        if (event.data.success) {
+                            log('✅ Service Worker caches cleared', 'success');
+                        } else {
+                            log(`❌ Failed to clear SW caches: ${event.data.error}`, 'error');
+                        }
+                    };
+                    navigator.serviceWorker.controller.postMessage(
+                        { type: 'CLEAR_CACHE' },
+                        [messageChannel.port2]
+                    );
+                }
+                
+                // Clear browser caches
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (const cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`🗑️ Deleted cache: ${cacheName}`, 'success');
+                    }
+                }
+                
+                // Clear localStorage
+                localStorage.clear();
+                log('🧹 LocalStorage cleared', 'success');
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                log('🧹 SessionStorage cleared', 'success');
+                
+                log('✅ All caches cleared successfully!', 'success');
+                log('💡 Tip: Refresh the page to reload fresh resources', 'info');
+                
+            } catch (error) {
+                log(`❌ Error clearing caches: ${error.message}`, 'error');
+            }
+        };
+        
+        window.checkMediaPipeStatus = function() {
+            const output = document.getElementById('debugOutput');
+            const log = (msg, type = 'info') => {
+                if (output) {
+                    output.innerHTML += `<div class="${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                }
+            };
+            
+            log('🔍 Checking MediaPipe status...', 'info');
+            
+            // Check if MediaPipe objects are available
+            const checks = {
+                'Pose': typeof Pose !== 'undefined',
+                'Camera': typeof Camera !== 'undefined',
+                'drawConnectors': typeof drawConnectors !== 'undefined',
+                'drawLandmarks': typeof drawLandmarks !== 'undefined'
+            };
+            
+            Object.entries(checks).forEach(([name, available]) => {
+                if (available) {
+                    log(`✅ ${name}: Available`, 'success');
+                } else {
+                    log(`❌ ${name}: Not available`, 'error');
+                }
+            });
+            
+            // Check global pose instance
+            if (window.pose) {
+                log('✅ Global pose instance: Available', 'success');
+            } else {
+                log('❌ Global pose instance: Not initialized', 'error');
+            }
+            
+            // Check lazy loader status
+            if (window.lazyLoader) {
+                const status = lazyLoader.getStatus();
+                log(`📦 Libraries loaded: ${status.loaded}/${status.total}`, 'info');
+                
+                if (status.libraries.loaded.length > 0) {
+                    log(`✅ Loaded: ${status.libraries.loaded.join(', ')}`, 'success');
+                }
+                
+                if (status.libraries.loading.length > 0) {
+                    log(`⏳ Loading: ${status.libraries.loading.join(', ')}`, 'warning');
+                }
+            }
+            
+            // Check for common issues
+            if (typeof Pose === 'undefined') {
+                log('💡 Solution: Try clicking "Force Reload" to reload MediaPipe', 'info');
+            }
+            
+            log('🔍 MediaPipe status check complete', 'info');
+        };
+        
+        window.forceReload = function() {
+            const output = document.getElementById('debugOutput');
+            const log = (msg, type = 'info') => {
+                if (output) {
+                    output.innerHTML += `<div class="${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+                    output.scrollTop = output.scrollHeight;
+                }
+            };
+            
+            log('🔄 Force reloading in 3 seconds...', 'warning');
+            
+            setTimeout(() => {
+                // Hard reload without cache
+                window.location.reload(true);
+            }, 3000);
+        };
     </script>
 
     <!-- Lazy-loaded External Libraries (will be loaded on demand) -->

@@ -1770,4 +1770,160 @@ body {
     .skeleton {
         background: linear-gradient(90deg, #2a2a2a 25%, #1a1a1a 50%, #2a2a2a 75%);
     }
+}
+
+/* Debug Panel Styles */
+.debug-trigger {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1001;
+    font-size: 18px;
+    backdrop-filter: blur(10px);
+    transition: var(--transition);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.debug-trigger:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.debug-panel {
+    position: fixed;
+    bottom: 80px;
+    left: 20px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-xl);
+    z-index: 1002;
+    min-width: 280px;
+    max-width: 400px;
+    border: 1px solid var(--border-light);
+    animation: slideUp 0.3s ease-out;
+}
+
+.debug-panel h5 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.debug-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.debug-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--primary-gradient);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.debug-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.debug-btn.close {
+    background: var(--danger-gradient);
+    grid-column: span 2;
+}
+
+.debug-output {
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-light);
+}
+
+.debug-output:empty {
+    display: none;
+}
+
+.debug-output .success {
+    color: #10b981;
+}
+
+.debug-output .error {
+    color: #ef4444;
+}
+
+.debug-output .warning {
+    color: #f59e0b;
+}
+
+.debug-output .info {
+    color: #3b82f6;
+}
+
+/* Mobile debug panel adjustments */
+@media (max-width: 768px) {
+    .debug-trigger {
+        bottom: 15px;
+        left: 15px;
+        width: 44px;
+        height: 44px;
+        font-size: 16px;
+    }
+    
+    .debug-panel {
+        bottom: 70px;
+        left: 15px;
+        right: 15px;
+        min-width: auto;
+        max-width: none;
+    }
+    
+    .debug-controls {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    .debug-btn.close {
+        grid-column: span 1;
+    }
+}
+
+/* Dark mode debug panel */
+@media (prefers-color-scheme: dark) {
+    .debug-panel {
+        background: #1a1a1a;
+        border-color: #333;
+    }
+    
+    .debug-output {
+        background: #0f0f0f;
+        border-color: #333;
+        color: #ccc;
+    }
 } 

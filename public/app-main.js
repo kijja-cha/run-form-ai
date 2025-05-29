@@ -400,17 +400,103 @@ function stopRecording() {
     }
 }
 
-// Optimized analysis function
+// Initialize application with performance optimization
+async function initializeApp() {
+    console.log('🏃‍♂️ Initializing RunForm.AI Phase 2 with Performance Optimization...');
+    lightTracker.start('app-init');
+    
+    // Get auto-optimization settings
+    if (window.performanceMonitor) {
+        optimizationSettings = window.performanceMonitor.autoOptimize();
+        console.log('🎯 Auto-optimization settings:', optimizationSettings);
+    }
+    
+    // Force load critical libraries immediately for stability
+    try {
+        console.log('📦 Force loading critical MediaPipe libraries...');
+        await window.lazyLoader.loadOnDemand('analysis');
+        console.log('✅ Critical libraries loaded successfully');
+    } catch (error) {
+        console.warn('⚠️ Failed to load libraries via lazy loader, using fallback', error);
+        // Fallback: Load libraries the old way
+        await loadLibrariesFallback();
+    }
+    
+    // Initialize Web Workers if supported and beneficial (but not required)
+    if (optimizationSettings?.enableWorkers) {
+        try {
+            const workerSuccess = await initializeWebWorkers();
+            if (!workerSuccess) {
+                console.log('💡 Web Workers not initialized, using main thread');
+            }
+        } catch (error) {
+            console.warn('⚠️ Web Workers failed, continuing with main thread', error);
+            isUsingWorkers = false;
+        }
+    }
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Always initialize MediaPipe Pose on main thread as backup
+    try {
+        await initializePose();
+        console.log('✅ MediaPipe Pose initialized on main thread');
+    } catch (error) {
+        console.error('❌ Failed to initialize MediaPipe Pose:', error);
+    }
+    
+    // Show initial section
+    showSection(step1);
+    
+    lightTracker.end('app-init');
+    console.log('✅ RunForm.AI Phase 2 with Performance Optimization initialized successfully!');
+}
+
+// Fallback library loading function
+async function loadLibrariesFallback() {
+    console.log('🔄 Loading libraries with fallback method...');
+    
+    const libraries = [
+        'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
+        'https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js',
+        'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js',
+        'https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js'
+    ];
+    
+    for (const lib of libraries) {
+        try {
+            await loadScript(lib);
+            console.log(`✅ Loaded: ${lib}`);
+        } catch (error) {
+            console.error(`❌ Failed to load: ${lib}`, error);
+        }
+    }
+}
+
+// Helper function to load script
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        // Check if already loaded
+        if (document.querySelector(`script[src="${src}"]`)) {
+            resolve();
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = src;
+        script.crossOrigin = 'anonymous';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+// Optimized analysis function with better error handling
 async function analyzeVideoOptimized() {
     if (!currentVideo) {
         alert('Please load a video first.');
         return;
-    }
-
-    // Check if required libraries are loaded
-    if (!window.lazyLoader.isFeatureReady('analysis')) {
-        console.log('📦 Loading analysis libraries...');
-        await window.lazyLoader.loadOnDemand('analysis');
     }
 
     console.log('🔍 Starting enhanced analysis with performance optimization...');
@@ -434,23 +520,57 @@ async function analyzeVideoOptimized() {
     const video = currentVideo;
     const duration = video.duration;
     
-    // Adaptive frame rate based on device performance
-    const baseFrameRate = window.DEMO_CONFIG?.PERFORMANCE?.TARGET_FPS || 10;
-    const frameRate = optimizationSettings?.reduceQuality ? Math.max(5, baseFrameRate / 2) : baseFrameRate;
-    
+    // Use conservative frame rate for stability
+    const frameRate = 5; // Reduced for stability
     totalFramesToProcess = Math.floor(duration * frameRate);
+
+    console.log(`📊 Processing ${totalFramesToProcess} frames at ${frameRate} FPS`);
 
     // Set up canvas for processing
     outputCanvas.width = video.videoWidth || 640;
     outputCanvas.height = video.videoHeight || 480;
 
     try {
-        if (isUsingWorkers && poseWorker) {
-            // Use Web Worker for analysis
-            await analyzeWithWorker(video, duration, frameRate);
-        } else {
-            // Fallback to main thread
-            await analyzeWithMainThread(video, duration, frameRate);
+        // Always use main thread for now (more stable)
+        console.log('⚙️ Using main thread analysis for stability');
+        
+        // Ensure pose is initialized
+        if (!pose) {
+            console.log('🔧 Reinitializing MediaPipe Pose...');
+            await initializePose();
+        }
+        
+        if (!pose) {
+            throw new Error('MediaPipe Pose not available');
+        }
+        
+        // Process frames on main thread
+        for (let i = 0; i < totalFramesToProcess; i++) {
+            const currentTime = (i / frameRate);
+            video.currentTime = currentTime;
+
+            await new Promise((resolve) => {
+                video.addEventListener('seeked', resolve, { once: true });
+            });
+
+            // Process frame with MediaPipe
+            await pose.send({ image: video });
+
+            // Update progress
+            const progress = ((i + 1) / totalFramesToProcess) * 100;
+            const currentInsights = analysisData.reduce((sum, frame) => sum + (frame?.issues?.length || 0), 0);
+            
+            updateProgressOverlay(
+                true,
+                `Analyzing frame ${i + 1} of ${totalFramesToProcess}...`,
+                progress,
+                i + 1,
+                currentInsights,
+                progress > 50 ? 'High Quality' : 'Building...'
+            );
+
+            // Add small delay to prevent overwhelming
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
 
         // Generate comprehensive results
@@ -469,95 +589,22 @@ async function analyzeVideoOptimized() {
 
     } catch (error) {
         console.error('❌ Analysis failed:', error);
+        
+        // Enhanced error reporting
+        let errorMessage = 'Analysis failed. ';
+        if (error.message.includes('MediaPipe')) {
+            errorMessage += 'MediaPipe libraries not loaded properly. ';
+        } else if (error.message.includes('pose')) {
+            errorMessage += 'Pose detection initialization failed. ';
+        }
+        errorMessage += 'Please refresh the page and try again.';
+        
         updateProgressOverlay(false);
         updateStatusIndicator(true, 'Analysis Failed', 'error');
-        alert('Analysis failed. Please try again.');
+        alert(errorMessage);
         lightTracker.end('analysis');
     } finally {
         isAnalyzing = false;
-    }
-}
-
-// Analyze with Web Worker
-async function analyzeWithWorker(video, duration, frameRate) {
-    console.log('🔧 Using Web Worker for analysis');
-    
-    // Extract frames and send to worker
-    const frames = [];
-    for (let i = 0; i < totalFramesToProcess; i++) {
-        const currentTime = (i / frameRate);
-        video.currentTime = currentTime;
-        
-        await new Promise((resolve) => {
-            video.addEventListener('seeked', resolve, { once: true });
-        });
-        
-        // Extract frame data
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0);
-        
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        frames.push({ imageData, frameIndex: i });
-    }
-    
-    // Send batch to worker
-    poseWorker.postMessage({
-        type: 'PROCESS_BATCH',
-        data: { frames }
-    });
-    
-    // Wait for completion
-    return new Promise((resolve) => {
-        const handler = (e) => {
-            if (e.data.type === 'BATCH_COMPLETE') {
-                poseWorker.removeEventListener('message', handler);
-                resolve();
-            }
-        };
-        poseWorker.addEventListener('message', handler);
-    });
-}
-
-let totalFramesToProcess = 0;
-
-// Analyze with main thread (fallback)
-async function analyzeWithMainThread(video, duration, frameRate) {
-    console.log('⚙️ Using main thread for analysis');
-    
-    // Ensure pose is initialized
-    if (!pose) {
-        await initializePose();
-    }
-    
-    for (let i = 0; i < totalFramesToProcess; i++) {
-        const currentTime = (i / frameRate);
-        video.currentTime = currentTime;
-
-        await new Promise((resolve) => {
-            video.addEventListener('seeked', resolve, { once: true });
-        });
-
-        // Process frame with MediaPipe
-        await pose.send({ image: video });
-
-        // Update progress
-        const progress = ((i + 1) / totalFramesToProcess) * 100;
-        const currentInsights = analysisData.reduce((sum, frame) => sum + (frame?.issues?.length || 0), 0);
-        
-        updateProgressOverlay(
-            true,
-            `Analyzing frame ${i + 1} of ${totalFramesToProcess}...`,
-            progress,
-            i + 1,
-            currentInsights,
-            progress > 50 ? 'High Quality' : 'Building...'
-        );
-
-        // Add small delay to prevent overwhelming
-        await new Promise(resolve => setTimeout(resolve, 10));
     }
 }
 
@@ -685,37 +732,6 @@ function resetApp() {
     }
     
     lightTracker.end('reset');
-}
-
-// Initialize application with performance optimization
-async function initializeApp() {
-    console.log('🏃‍♂️ Initializing RunForm.AI Phase 2 with Performance Optimization...');
-    lightTracker.start('app-init');
-    
-    // Get auto-optimization settings
-    if (window.performanceMonitor) {
-        optimizationSettings = window.performanceMonitor.autoOptimize();
-        console.log('🎯 Auto-optimization settings:', optimizationSettings);
-    }
-    
-    // Initialize Web Workers if supported and beneficial
-    if (optimizationSettings?.enableWorkers) {
-        await initializeWebWorkers();
-    }
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Initialize MediaPipe Pose (if not using workers)
-    if (!isUsingWorkers) {
-        await initializePose();
-    }
-    
-    // Show initial section
-    showSection(step1);
-    
-    lightTracker.end('app-init');
-    console.log('✅ RunForm.AI Phase 2 with Performance Optimization initialized successfully!');
 }
 
 // Start the application when DOM is loaded

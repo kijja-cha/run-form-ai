@@ -1,11 +1,11 @@
-// RunForm.AI - Service Worker
-// Caches resources for better performance and offline capability
+// RunForm.AI - Service Worker (Stability-First Version)
+// Caches resources for better performance but prioritizes functionality
 
-const CACHE_NAME = 'runform-ai-v2.0.0';
-const STATIC_CACHE = 'runform-static-v2.0.0';
-const DYNAMIC_CACHE = 'runform-dynamic-v2.0.0';
+const CACHE_NAME = 'runform-ai-v2.0.1';
+const STATIC_CACHE = 'runform-static-v2.0.1';
+const DYNAMIC_CACHE = 'runform-dynamic-v2.0.1';
 
-// Resources to cache immediately
+// Resources to cache immediately (reduced list for stability)
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -13,20 +13,17 @@ const STATIC_ASSETS = [
     '/app.js',
     '/app-main.js',
     '/phase2-features.js',
-    '/demo-config.js',
-    '/utils/lazy-loader.js',
-    '/utils/performance-monitor.js',
-    '/workers/pose-analysis-worker.js'
+    '/demo-config.js'
 ];
 
-// External libraries (cache on first load)
+// External libraries (cache on demand only)
 const EXTERNAL_LIBS = [
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
 ];
 
-// MediaPipe resources (cache on demand)
+// MediaPipe resources (do not cache - always fetch fresh for stability)
 const MEDIAPIPE_LIBS = [
     'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
     'https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js',
@@ -34,23 +31,24 @@ const MEDIAPIPE_LIBS = [
     'https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js'
 ];
 
-// Install event - cache static assets
+// Install event - cache only essential static assets
 self.addEventListener('install', (event) => {
-    console.log('🔧 Service Worker installing...');
+    console.log('🔧 Service Worker installing (stability-first)...');
     
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then((cache) => {
-                console.log('📦 Caching static assets...');
+                console.log('📦 Caching essential static assets...');
                 return cache.addAll(STATIC_ASSETS);
             })
             .then(() => {
-                console.log('✅ Static assets cached successfully');
+                console.log('✅ Essential assets cached successfully');
                 // Skip waiting to activate immediately
                 return self.skipWaiting();
             })
             .catch((error) => {
-                console.error('❌ Failed to cache static assets:', error);
+                console.warn('⚠️ Some assets failed to cache, continuing anyway:', error);
+                return self.skipWaiting(); // Continue even if some caching fails
             })
     );
 });
@@ -82,7 +80,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch event - serve from cache or network
+// Fetch event - prioritize network for critical resources
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
@@ -91,53 +89,73 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
+    // Always fetch MediaPipe libraries fresh (no caching for stability)
+    if (MEDIAPIPE_LIBS.some(lib => event.request.url === lib)) {
+        console.log('🌐 Fetching MediaPipe library fresh:', event.request.url);
+        event.respondWith(
+            fetch(event.request).catch(error => {
+                console.error('❌ Failed to fetch MediaPipe library:', event.request.url, error);
+                // Return a minimal error script instead of failing completely
+                return new Response(
+                    `console.error("Failed to load MediaPipe library: ${event.request.url}");`,
+                    { headers: { 'Content-Type': 'application/javascript' } }
+                );
+            })
+        );
+        return;
+    }
+    
     // Handle different types of requests
     if (STATIC_ASSETS.some(asset => url.pathname === asset || url.pathname.endsWith(asset))) {
-        // Static assets - cache first strategy
-        event.respondWith(cacheFirstStrategy(event.request, STATIC_CACHE));
+        // Static assets - network first, then cache
+        event.respondWith(networkFirstStrategy(event.request, STATIC_CACHE));
     } 
-    else if (EXTERNAL_LIBS.some(lib => event.request.url === lib) || 
-             MEDIAPIPE_LIBS.some(lib => event.request.url === lib)) {
-        // External libraries - cache first with fallback
+    else if (EXTERNAL_LIBS.some(lib => event.request.url === lib)) {
+        // External libraries - cache first with network fallback
         event.respondWith(cacheFirstWithFallback(event.request, DYNAMIC_CACHE));
     }
     else if (url.origin === location.origin) {
-        // Same-origin requests - network first with cache fallback
+        // Same-origin requests - network first
         event.respondWith(networkFirstStrategy(event.request, DYNAMIC_CACHE));
     }
-    else {
-        // External requests - network only (don't cache user videos, etc.)
-        return;
-    }
+    // For all other external requests, let them pass through without intervention
 });
 
-// Cache first strategy (for static assets)
-async function cacheFirstStrategy(request, cacheName) {
+// Network first strategy (for critical resources)
+async function networkFirstStrategy(request, cacheName) {
     try {
-        const cache = await caches.open(cacheName);
-        const cachedResponse = await cache.match(request);
-        
-        if (cachedResponse) {
-            console.log('📁 Serving from cache:', request.url);
-            return cachedResponse;
-        }
-        
-        console.log('🌐 Fetching from network:', request.url);
+        console.log('🌐 Network first for:', request.url);
         const networkResponse = await fetch(request);
         
-        // Cache successful responses
         if (networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
+            const cache = await caches.open(cacheName);
+            cache.put(request, networkResponse.clone()).catch(error => {
+                console.warn('⚠️ Cache put failed:', error);
+            });
         }
         
         return networkResponse;
     } catch (error) {
-        console.error('❌ Cache first strategy failed:', error);
+        console.log('📁 Network failed, trying cache:', request.url);
+        
+        try {
+            const cache = await caches.open(cacheName);
+            const cachedResponse = await cache.match(request);
+            
+            if (cachedResponse) {
+                console.log('📁 Serving from cache:', request.url);
+                return cachedResponse;
+            }
+        } catch (cacheError) {
+            console.warn('⚠️ Cache access failed:', cacheError);
+        }
+        
+        // If all else fails, throw the original error
         throw error;
     }
 }
 
-// Cache first with fallback (for external libraries)
+// Cache first with fallback (for non-critical external libraries)
 async function cacheFirstWithFallback(request, cacheName) {
     try {
         const cache = await caches.open(cacheName);
@@ -154,7 +172,9 @@ async function cacheFirstWithFallback(request, cacheName) {
         if (networkResponse.ok) {
             // Cache with expiration for external libs
             const responseToCache = networkResponse.clone();
-            cache.put(request, responseToCache);
+            cache.put(request, responseToCache).catch(error => {
+                console.warn('⚠️ Failed to cache library:', error);
+            });
             console.log('💾 Cached external library:', request.url);
         }
         
@@ -164,35 +184,10 @@ async function cacheFirstWithFallback(request, cacheName) {
         
         // Return a basic error response for JS files
         if (request.url.endsWith('.js')) {
-            return new Response('console.warn("Failed to load library: ' + request.url + '");', {
-                headers: { 'Content-Type': 'application/javascript' }
-            });
-        }
-        
-        throw error;
-    }
-}
-
-// Network first strategy (for dynamic content)
-async function networkFirstStrategy(request, cacheName) {
-    try {
-        console.log('🌐 Network first for:', request.url);
-        const networkResponse = await fetch(request);
-        
-        if (networkResponse.ok) {
-            const cache = await caches.open(cacheName);
-            cache.put(request, networkResponse.clone());
-        }
-        
-        return networkResponse;
-    } catch (error) {
-        console.log('📁 Network failed, trying cache:', request.url);
-        
-        const cache = await caches.open(cacheName);
-        const cachedResponse = await cache.match(request);
-        
-        if (cachedResponse) {
-            return cachedResponse;
+            return new Response(
+                `console.warn("Failed to load library: ${request.url}");`,
+                { headers: { 'Content-Type': 'application/javascript' } }
+            );
         }
         
         throw error;
@@ -204,16 +199,8 @@ self.addEventListener('message', (event) => {
     const { type, data } = event.data;
     
     switch (type) {
-        case 'CACHE_LIBRARY':
-            cacheLibrary(data.url).then(() => {
-                event.ports[0].postMessage({ success: true });
-            }).catch((error) => {
-                event.ports[0].postMessage({ success: false, error: error.message });
-            });
-            break;
-            
         case 'CLEAR_CACHE':
-            clearCache(data.cacheName).then(() => {
+            clearAllCaches().then(() => {
                 event.ports[0].postMessage({ success: true });
             }).catch((error) => {
                 event.ports[0].postMessage({ success: false, error: error.message });
@@ -233,29 +220,20 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Cache specific library
-async function cacheLibrary(url) {
+// Clear all caches
+async function clearAllCaches() {
     try {
-        const cache = await caches.open(DYNAMIC_CACHE);
-        const response = await fetch(url);
-        
-        if (response.ok) {
-            await cache.put(url, response);
-            console.log('💾 Library cached:', url);
-        }
+        const cacheNames = await caches.keys();
+        const deletePromises = cacheNames.map(cacheName => {
+            if (cacheName.startsWith('runform-')) {
+                console.log('🗑️ Deleting cache:', cacheName);
+                return caches.delete(cacheName);
+            }
+        });
+        await Promise.all(deletePromises);
+        console.log('✅ All caches cleared');
     } catch (error) {
-        console.error('❌ Failed to cache library:', url, error);
-        throw error;
-    }
-}
-
-// Clear specific cache
-async function clearCache(cacheName) {
-    try {
-        const deleted = await caches.delete(cacheName || DYNAMIC_CACHE);
-        console.log(deleted ? '🗑️ Cache cleared' : '⚠️ Cache not found');
-    } catch (error) {
-        console.error('❌ Failed to clear cache:', error);
+        console.error('❌ Failed to clear caches:', error);
         throw error;
     }
 }
@@ -267,12 +245,17 @@ async function getCacheStatus() {
         const status = {};
         
         for (const cacheName of cacheNames) {
-            const cache = await caches.open(cacheName);
-            const keys = await cache.keys();
-            status[cacheName] = {
-                count: keys.length,
-                urls: keys.map(request => request.url)
-            };
+            try {
+                const cache = await caches.open(cacheName);
+                const keys = await cache.keys();
+                status[cacheName] = {
+                    count: keys.length,
+                    urls: keys.map(request => request.url)
+                };
+            } catch (error) {
+                console.warn(`⚠️ Failed to access cache ${cacheName}:`, error);
+                status[cacheName] = { error: error.message };
+            }
         }
         
         return status;
@@ -282,35 +265,7 @@ async function getCacheStatus() {
     }
 }
 
-// Periodic cache cleanup
-async function performCacheCleanup() {
-    try {
-        const cache = await caches.open(DYNAMIC_CACHE);
-        const requests = await cache.keys();
-        const now = Date.now();
-        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-        
-        for (const request of requests) {
-            const response = await cache.match(request);
-            const dateHeader = response.headers.get('date');
-            
-            if (dateHeader) {
-                const responseTime = new Date(dateHeader).getTime();
-                if (now - responseTime > maxAge) {
-                    await cache.delete(request);
-                    console.log('🗑️ Removed old cached resource:', request.url);
-                }
-            }
-        }
-    } catch (error) {
-        console.error('❌ Cache cleanup failed:', error);
-    }
-}
-
-// Run cleanup every 24 hours
-setInterval(performCacheCleanup, 24 * 60 * 60 * 1000);
-
-console.log('✅ Service Worker ready');
+console.log('✅ Service Worker ready (stability-first)');
 
 // Handle updates
 self.addEventListener('message', (event) => {
