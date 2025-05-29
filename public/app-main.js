@@ -467,6 +467,8 @@ async function initializeApp() {
 
 // New function to properly initialize pose globally
 async function initializePoseGlobal() {
+    console.log('🔧 initializePoseGlobal called');
+    
     // Check if libraries are available
     if (typeof Pose === 'undefined') {
         console.log('📦 Pose not available, loading libraries...');
@@ -476,35 +478,62 @@ async function initializePoseGlobal() {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         if (typeof Pose === 'undefined') {
-            throw new Error('MediaPipe Pose library not available');
+            throw new Error('MediaPipe Pose library not available after loading');
         }
     }
     
     console.log('🔧 Creating Pose instance...');
+    console.log('🔧 Pose constructor available:', typeof Pose);
     
-    // Create pose instance with proper configuration
-    window.pose = new Pose({
-        locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+    try {
+        // Create pose instance with proper configuration
+        window.pose = new Pose({
+            locateFile: (file) => {
+                const url = `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                console.log(`📥 MediaPipe loading file: ${url}`);
+                return url;
+            }
+        });
+
+        console.log('✅ Pose instance created:', typeof window.pose);
+
+        // Configure pose options
+        window.pose.setOptions({
+            modelComplexity: 1, // Reduced from 2 for better stability
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            smoothSegmentation: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+            selfieMode: false
+        });
+
+        console.log('✅ Pose options set successfully');
+
+        // Set up pose results handler
+        if (typeof onPoseResults === 'function') {
+            window.pose.onResults(onPoseResults);
+            console.log('✅ onPoseResults handler attached');
+        } else {
+            console.error('❌ onPoseResults function not available');
+            throw new Error('onPoseResults function not available');
         }
-    });
-
-    // Configure pose options
-    window.pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-        selfieMode: false
-    });
-
-    // Set up pose results handler
-    window.pose.onResults(onPoseResults);
-    
-    console.log('✅ Global pose instance created and configured');
-    return window.pose;
+        
+        console.log('✅ Global pose instance created and configured successfully');
+        
+        // Test the pose instance
+        console.log('🧪 Testing pose instance methods...');
+        console.log('- setOptions:', typeof window.pose.setOptions);
+        console.log('- send:', typeof window.pose.send);
+        console.log('- onResults:', typeof window.pose.onResults);
+        
+        return window.pose;
+        
+    } catch (error) {
+        console.error('❌ Error creating pose instance:', error);
+        window.pose = null;
+        throw error;
+    }
 }
 
 // Make function globally available for debug
@@ -577,8 +606,8 @@ async function analyzeVideoOptimized() {
     const video = currentVideo;
     const duration = video.duration;
     
-    // Use conservative frame rate for stability
-    const frameRate = 5; // Reduced for stability
+    // Restore normal frame rate - this was the issue!
+    const frameRate = 10; // Back to 10 FPS for proper analysis
     totalFramesToProcess = Math.floor(duration * frameRate);
 
     console.log(`📊 Processing ${totalFramesToProcess} frames at ${frameRate} FPS`);
@@ -593,8 +622,11 @@ async function analyzeVideoOptimized() {
         
         // Ensure pose is initialized and available
         if (!window.pose) {
-            console.log('🔧 Global pose not found, reinitializing...');
+            console.log('🔧 Global pose not found, initializing...');
             await initializePoseGlobal();
+            
+            // Wait a bit for initialization
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         if (!window.pose) {
@@ -602,6 +634,11 @@ async function analyzeVideoOptimized() {
         }
         
         console.log('✅ Pose instance confirmed, starting analysis...');
+        console.log('🔧 Pose instance type:', typeof window.pose);
+        console.log('🔧 Pose send function:', typeof window.pose.send);
+        
+        // Reset analysis data
+        analysisData = [];
         
         // Process frames on main thread
         for (let i = 0; i < totalFramesToProcess; i++) {
@@ -612,8 +649,15 @@ async function analyzeVideoOptimized() {
                 video.addEventListener('seeked', resolve, { once: true });
             });
 
+            console.log(`🔄 Processing frame ${i + 1}/${totalFramesToProcess} at time ${currentTime.toFixed(2)}s`);
+
             // Process frame with MediaPipe
-            await window.pose.send({ image: video });
+            try {
+                await window.pose.send({ image: video });
+                console.log(`✅ Frame ${i + 1} sent to MediaPipe successfully`);
+            } catch (frameError) {
+                console.error(`❌ Error processing frame ${i + 1}:`, frameError);
+            }
 
             // Update progress
             const progress = ((i + 1) / totalFramesToProcess) * 100;
@@ -629,12 +673,14 @@ async function analyzeVideoOptimized() {
             );
 
             // Add small delay to prevent overwhelming
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 30));
         }
+
+        console.log(`📊 Analysis completed. Data points collected: ${analysisData.length}`);
 
         // Verify we have analysis data
         if (analysisData.length === 0) {
-            throw new Error('No analysis data generated - pose detection may have failed');
+            throw new Error('No analysis data generated - pose detection may have failed. Check if person is clearly visible in video.');
         }
 
         // Generate comprehensive results
@@ -654,14 +700,22 @@ async function analyzeVideoOptimized() {
     } catch (error) {
         console.error('❌ Analysis failed:', error);
         
-        // Enhanced error reporting
+        // Enhanced error reporting with more specific guidance
         let errorMessage = 'Analysis failed. ';
         if (error.message.includes('MediaPipe') || error.message.includes('Pose')) {
             errorMessage += 'MediaPipe Pose detection failed. ';
         } else if (error.message.includes('analysis data')) {
             errorMessage += 'No pose data detected in video. ';
+        } else if (error.message.includes('visible')) {
+            errorMessage += 'Person not clearly visible in video. ';
         }
-        errorMessage += 'Please try:\n1. Refresh the page\n2. Use Clear Cache in debug panel\n3. Ensure person is visible in video';
+        
+        errorMessage += '\n\nTroubleshooting steps:\n';
+        errorMessage += '1. Ensure person is clearly visible throughout video\n';
+        errorMessage += '2. Use Clear Cache in debug panel\n';
+        errorMessage += '3. Try Force Reload\n';
+        errorMessage += '4. Check video quality and lighting\n';
+        errorMessage += '5. Make sure full body is in frame';
         
         updateProgressOverlay(false);
         updateStatusIndicator(true, 'Analysis Failed', 'error');

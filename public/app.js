@@ -217,7 +217,24 @@ async function initializePose() {
 
 // Enhanced pose detection results handler
 function onPoseResults(results) {
-    if (!isAnalyzing || !results.poseLandmarks) return;
+    console.log('🎯 onPoseResults called:', {
+        isAnalyzing,
+        hasLandmarks: !!results.poseLandmarks,
+        landmarkCount: results.poseLandmarks?.length || 0,
+        analysisDataLength: analysisData.length
+    });
+    
+    if (!isAnalyzing) {
+        console.log('⏸️ Analysis not active, skipping frame');
+        return;
+    }
+    
+    if (!results.poseLandmarks) {
+        console.log('❌ No pose landmarks detected in this frame');
+        return;
+    }
+
+    console.log(`✅ Processing landmarks for frame ${analysisData.length + 1}`);
 
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
@@ -232,6 +249,9 @@ function onPoseResults(results) {
         const frameAnalysis = analyzeRunningFormAdvanced(results.poseLandmarks);
         if (frameAnalysis) {
             analysisData.push(frameAnalysis);
+            console.log(`📊 Frame analysis added. Total: ${analysisData.length}, Issues: ${frameAnalysis.issues.length}`);
+        } else {
+            console.log('⚠️ Frame analysis returned null');
         }
     }
     
